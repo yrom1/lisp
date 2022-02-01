@@ -1,2 +1,2 @@
-cc -std=c99 -Wall main.c mpc.c -ledit -lm -o main
+cc -std=c99 -Og -g -Wall main.c mpc.c -ledit -lm -o main
 ./main
