@@ -30,6 +30,7 @@ enum Token {
   */
   lbracket,
   rbracket,
+  function,
   terminal,
   nomatch,
 };
@@ -39,6 +40,7 @@ auto parse_elem(char input) {
   std::string elem = {input};
   if (elem == "(") return Token::lbracket;
   if (elem == ")") return Token::rbracket;
+  if (std::regex_search(elem, std::regex("\\+|-"))) return Token::function;
   if (std::regex_search(elem, std::regex("[0-9]"))) return Token::terminal;
   return Token::nomatch;
 }
@@ -47,7 +49,6 @@ auto lex(std::string input) {
   std::vector<std::pair<Token::Token, char>> lex_input;
   std::string current;
   for (auto elem : input) {
-    std::cout << elem << std::endl;
     if (elem == ' ') {
       continue;
     }
@@ -56,6 +57,9 @@ auto lex(std::string input) {
   }
   return lex_input;
 }
+
+template <typename T, typename U>
+auto make_tree(std::vector<std::pair<T, U>> input) {}
 
 int main() {
   std::cout << std::string("lisp> ");
