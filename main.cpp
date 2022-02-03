@@ -70,6 +70,8 @@ auto parse_elem(char input) {
 auto lex(std::string input) {
   std::vector<std::pair<Token::Token, char>> lex_input;
   std::string current;
+  // TODO(yrom1): switch from char to std::string
+  //              (+ 42) -> 6 right now lol
   for (auto elem : input) {
     if (elem == ' ') {
       continue;
@@ -228,4 +230,12 @@ void repl() {
   }
 }
 
-int main() { repl(); }
+int main() {
+  assert(eval_string("1") == 1);
+  // assert(eval_string("()") == ???); // FIXME
+  assert(eval_string("(+ 1 2 3 4)") == 10);
+  assert(eval_string("(+ 1 (+ 2))") == 3);
+  assert(eval_string("(+ (+ 1 2) (+ 3 4))") == 10);
+  assert(eval_string("(+ (+ (+ (+ 2))))") == 2);
+  repl();
+}
