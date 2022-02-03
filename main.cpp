@@ -218,6 +218,8 @@ auto eval_string(std::string input) {
   // if it's not error happened
   assert(tree_size_pair.second == 0);
   auto output = eval(tree_size_pair.first);
+  print::prn();
+  print::prn(input, "->", output);
   return output;
 }
 
@@ -226,7 +228,7 @@ void repl() {
     std::cout << std::string("lisp> ");
     std::string input;
     std::getline(std::cin, input);
-    print::prn("eval: ", eval_string(input));
+    print::prn(eval_string(input));
   }
 }
 
