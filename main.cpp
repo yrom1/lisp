@@ -279,10 +279,15 @@ void repl() {
 void run_tests() {
   assert(eval_string("1") == 1);
   // assert(eval_string("()") == ???); // FIXME
+  assert(eval_string("(+)") == 0);
   assert(eval_string("(+ 1 2 3 4)") == 10);
   assert(eval_string("(+ 1 (+ 2))") == 3);
   assert(eval_string("(+ (+ 1 2) (+ 3 4))") == 10);
   assert(eval_string("(+ (+ (+ (+ 2))))") == 2);
+  assert(eval_string("(- 1)") == -1);
+  assert(eval_string("(- 4 2)") == 2);
+  assert(eval_string("(- (- 1))") == 1);
+  assert(eval_string("(+ 1 (- 4 2))") == 3);
 }
 
 int main() {
