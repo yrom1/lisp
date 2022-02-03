@@ -51,12 +51,12 @@ enum Token {
 }  // namespace Token
 
 // template <typename T>
-typedef struct SyntaxTree {
+struct SyntaxTree {
   Token::Token token;
   std::string data;
   // Data<T> data; // TODO(yrom1): why doesn't this work?
   std::vector<SyntaxTree> children;
-} SyntaxTree;
+};
 
 auto parse_elem(char input) {
   std::string elem = {input};
@@ -173,6 +173,33 @@ std::pair<SyntaxTree, std::size_t> make_tree(
   return std::make_pair(tree, input.size());
 }
 
+int eval(SyntaxTree tree);
+
+template <typename T>
+int tree_reduce(SyntaxTree tree, T binary_operator) {
+  int total = 0;
+  while (tree.children.size() != 0) {
+    // children can either be F or T
+    if (tree.children.back().token == Token::terminal) {
+      total = binary_operator(total, std::stoi(tree.children.back().data));
+      tree.children.pop_back();
+    } else if (tree.children.back().token == Token::function) {
+      total = binary_operator(total, eval(tree.children.back()));
+      tree.children.pop_back();
+    } else {
+      print::prn("ERROR: Can't eval token in '+' function!");
+      return -42;
+    }
+  }
+  return total;
+}
+
+int add_function(SyntaxTree tree) { return tree_reduce(tree, std::plus<>()); }
+
+int minus_function(SyntaxTree tree) {
+  return tree_reduce(tree, std::minus<>());
+}
+
 int eval(SyntaxTree tree) {
   if (tree.token == Token::terminal) {
     return std::stoi(tree.data);
@@ -182,21 +209,9 @@ int eval(SyntaxTree tree) {
     // FIXME total can overflow
     // (+) -> 0 in sbcl
     if (tree.data == "+") {
-      int total = 0;
-      while (tree.children.size() != 0) {
-        // children can either be F or T
-        if (tree.children.back().token == Token::terminal) {
-          total += std::stoi(tree.children.back().data);
-          tree.children.pop_back();
-        } else if (tree.children.back().token == Token::function) {
-          total += eval(tree.children.back());
-          tree.children.pop_back();
-        } else {
-          print::prn("ERROR: Can't eval token in '+' function!");
-          return -42;
-        }
-      }
-      return total;
+      return add_function(tree);
+    } else if (tree.data == "-") {
+      return minus_function(tree);
     } else {
       print::prn("ERROR: Can't recognize function!");
       return -42;  // TEMP
@@ -232,12 +247,16 @@ void repl() {
   }
 }
 
-int main() {
+void run_tests() {
   assert(eval_string("1") == 1);
   // assert(eval_string("()") == ???); // FIXME
   assert(eval_string("(+ 1 2 3 4)") == 10);
   assert(eval_string("(+ 1 (+ 2))") == 3);
   assert(eval_string("(+ (+ 1 2) (+ 3 4))") == 10);
   assert(eval_string("(+ (+ (+ (+ 2))))") == 2);
+}
+
+int main() {
+  run_tests();
   repl();
 }
