@@ -205,19 +205,27 @@ int eval(SyntaxTree tree) {
   }
 }
 
-int main() {
-  std::cout << std::string("lisp> ");
-  std::string input;
-  std::getline(std::cin, input);
+auto eval_string(std::string input) {
   auto lex_input = lex(input);
   print::prn(lex_input);
   std::reverse(lex_input.begin(), lex_input.end());
   print::prn(lex_input);
+
   auto tree_size_pair = make_tree(lex_input);
   print_tree(tree_size_pair.first);
   // if it's not error happened
   assert(tree_size_pair.second == 0);
-  // TEMP testing single int
-  print::prn("eval: ", eval(tree_size_pair.first));
-  std::cout << input << std::endl;
+  auto output = eval(tree_size_pair.first);
+  return output;
 }
+
+void repl() {
+  while (true) {
+    std::cout << std::string("lisp> ");
+    std::string input;
+    std::getline(std::cin, input);
+    print::prn("eval: ", eval_string(input));
+  }
+}
+
+int main() { repl(); }
