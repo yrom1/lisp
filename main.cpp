@@ -2,6 +2,9 @@
 
 #include "print.h"
 
+struct SyntaxTree;
+int eval(SyntaxTree tree);
+
 template <typename T>
 struct Data {
   typedef T value_type;
@@ -173,49 +176,89 @@ std::pair<SyntaxTree, std::size_t> make_tree(
   return std::make_pair(tree, input.size());
 }
 
-int eval(SyntaxTree tree);
-
 template <typename T>
-int tree_reduce(SyntaxTree tree, T binary_operator) {
-  int total = 0;
+auto tree_reduce(SyntaxTree tree, T binary_operator) {
+  print::prn("before ", tree.children.size());
+  print::prn("--0");
+  auto total = eval(tree.children[0]);
+  print::prn("--5");
+  tree = tree.children[1];
+  print::prn("--4");
+  print::prn("after ", tree.children.size());
   while (tree.children.size() != 0) {
+    print::prn("--1");
     // children can either be F or T
     if (tree.children.back().token == Token::terminal) {
+      print::prn("--2");
       total = binary_operator(total, std::stoi(tree.children.back().data));
       tree.children.pop_back();
     } else if (tree.children.back().token == Token::function) {
+      print::prn("--3");
       total = binary_operator(total, eval(tree.children.back()));
       tree.children.pop_back();
     } else {
-      print::prn("ERROR: Can't eval token in '+' function!");
-      return -42;
+      print::prn("ERROR: Can't eval token during reduce!");
+      return -42;  // TEMP
     }
   }
   return total;
 }
 
-int add_function(SyntaxTree tree) { return tree_reduce(tree, std::plus<>()); }
+template <typename T, typename U>
+auto arity_dispatch(SyntaxTree tree, T uniary_op, U binary_op) {
+  // TODO(yrom1): this could be more elegant somehow
+  //              (-) doesn't have a no-arity dispatch... so...
+  if (tree.children.size() == 0 || tree.children.size() == 1) {
+    return uniary_op(tree);
+  } else {
+    return binary_op(tree);
+  }
+}
 
-int minus_function(SyntaxTree tree) {
-  return tree_reduce(tree, std::minus<>());
+auto add_unary(SyntaxTree tree) {
+  if (tree.children.size() == 0) {
+    return 0;
+  } else {
+    return eval(tree.children[0]);
+  }
+}
+
+auto add_binary(SyntaxTree tree) { return tree_reduce(tree, std::plus<>()); }
+
+auto add(SyntaxTree tree) {
+  return arity_dispatch(tree, add_unary, add_binary);
+}
+
+auto minus_unary(SyntaxTree tree) {
+  if (tree.children.size() == 0) {
+    print::prn("ERROR: Unary minus needs one child!");
+    return -42;  // TEMP
+  } else {
+    return -eval(tree.children[0]);
+  }
+}
+
+auto minus_binary(SyntaxTree tree) { return tree_reduce(tree, std::minus<>()); }
+
+auto minus(SyntaxTree tree) {
+  return arity_dispatch(tree, minus_unary, minus_binary);
+}
+
+auto dispatch(SyntaxTree tree) {
+  if (tree.data == "+") {
+    return add(tree);
+  }
+  if (tree.data == "-") {
+    return minus(tree);
+  }
+  return -42;  // TEMP
 }
 
 int eval(SyntaxTree tree) {
   if (tree.token == Token::terminal) {
     return std::stoi(tree.data);
   } else if (tree.token == Token::function) {
-    // TODO(yrom1) implement functions
-    // just '+' for now hard coded
-    // FIXME total can overflow
-    // (+) -> 0 in sbcl
-    if (tree.data == "+") {
-      return add_function(tree);
-    } else if (tree.data == "-") {
-      return minus_function(tree);
-    } else {
-      print::prn("ERROR: Can't recognize function!");
-      return -42;  // TEMP
-    }
+    return dispatch(tree);
   } else {
     print::prn("ERROR: Can't eval tree token!");
     return -42;  // TEMP
