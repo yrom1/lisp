@@ -97,36 +97,64 @@ void print_tree(const SyntaxTree& input) {
       print::pr(']');
     }
   }
+  print::prn();
 }
-
-SyntaxTree make_tree(std::vector<std::pair<Token::Token, char>> input) {
+//  std::vector<Token::Token>>::size
+std::pair<SyntaxTree, std::size_t> make_tree(
+    std::vector<std::pair<Token::Token, char>> input) {
   SyntaxTree tree;
   while (input.size() != 0) {
+    print::prn("input.size", input.size(), input.back().second);
     auto pair_token_data = input.back();
-    print::prn("outer");
-    print::prn(pair_token_data);
     input.pop_back();
-    if (pair_token_data.first == Token::function) {
+
+    // must start with lbracket
+    if (pair_token_data.first != Token::lbracket) {
+      print::prn(input.size(), "ERROR: Unbalanced lbracket!");
+      break;
+    }
+
+    if (pair_token_data.first == Token::terminal) {
+      print::prn("terminal");
       tree.token = pair_token_data.first;
       tree.data = pair_token_data.second;
-      print::prn(tree.token, tree.data, "wtf???", input.back().first);
+      break;
+    }
+
+    if (pair_token_data.first == Token::function) {
+      print::prn("function");
+      tree.token = pair_token_data.first;
+      tree.data = pair_token_data.second;
+
+      // pop function
+      input.pop_back();
       while (input.back().first != Token::rbracket) {
-        auto pair_token_data = input.back();
-        print::prn("inner");
-        print::prn(pair_token_data);
-        if (pair_token_data.first == Token::function) {
-          make_tree(input);
+        print::prn("child");
+        // we cant hit a function, doesn't make sense, only T, '(', or ')'
+        if (input.back().first == Token::terminal) {
+          SyntaxTree terminal = {input.back().first,
+                                 std::string{input.back().second},
+                                 std::vector<SyntaxTree>{}};
+          tree.children.push_back(terminal);
+          input.pop_back();
+        } else if (input.back().first == Token::lbracket) {
+          auto pair_tree_size = make_tree(input);
+          tree.children.push_back(pair_tree_size.first);
+          while (input.size() != pair_tree_size.second) {
+            input.pop_back();
+          }
+        } else if (input.back().first == Token::rbracket) {
+          input.pop_back();
           break;
         }
-        input.pop_back();
-        SyntaxTree terminal_node = {pair_token_data.first,
-                                    std::string{pair_token_data.second},
-                                    std::vector<SyntaxTree>{}};
-        tree.children.push_back(terminal_node);
       }
+
+      // pop rbracket
+      input.pop_back();
+      break;
     }
   }
-  return tree;
+  return std::make_pair(tree, input.size());
 }
 
 int main() {
@@ -137,7 +165,7 @@ int main() {
   print::prn(lex_input);
   std::reverse(lex_input.begin(), lex_input.end());
   print::prn(lex_input);
-  auto make_tree_lex_input = make_tree(lex_input);
-  print_tree(make_tree_lex_input);
+  auto tree_size_pair = make_tree(lex_input);
+  print_tree(tree_size_pair.first);
   std::cout << input << std::endl;
 }
