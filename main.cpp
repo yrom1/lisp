@@ -45,6 +45,7 @@ enum Token {
   rbracket,
   function,
   terminal,
+  nil,
   nomatch,
 };
 }  // namespace Token
@@ -99,6 +100,7 @@ void print_tree(const SyntaxTree& input) {
   }
   print::prn();
 }
+
 //  std::vector<Token::Token>>::size
 std::pair<SyntaxTree, std::size_t> make_tree(
     std::vector<std::pair<Token::Token, char>> input) {
@@ -108,12 +110,7 @@ std::pair<SyntaxTree, std::size_t> make_tree(
     auto pair_token_data = input.back();
     input.pop_back();
 
-    // must start with lbracket
-    if (pair_token_data.first != Token::lbracket) {
-      print::prn(input.size(), "ERROR: Unbalanced lbracket!");
-      break;
-    }
-
+    // 1 -> 1
     if (pair_token_data.first == Token::terminal) {
       print::prn("terminal");
       tree.token = pair_token_data.first;
@@ -121,13 +118,31 @@ std::pair<SyntaxTree, std::size_t> make_tree(
       break;
     }
 
-    if (pair_token_data.first == Token::function) {
-      print::prn("function");
-      tree.token = pair_token_data.first;
-      tree.data = pair_token_data.second;
+    // An S-expr MUST start with a lbracket!
+    if (pair_token_data.first != Token::lbracket) {
+      print::prn(input.size(), "ERROR: Unbalanced lbracket!",
+                 "next: ", input.back().first, input.back().second,
+                 "size: ", input.size());
+      break;
+    }
 
-      // pop function
-      input.pop_back();
+    // We're in an S-expr, can be either F, rbracket
+    print::prn("input.size", input.size());
+    auto sexpr_pair_token_data = input.back();
+    input.pop_back();
+
+    // Empty () pair -> NIL
+    if (sexpr_pair_token_data.first == Token::rbracket) {
+      tree.token = Token::nil;
+      tree.data = "NIL";
+      break;
+    }
+
+    if (sexpr_pair_token_data.first == Token::function) {
+      print::prn("function");
+      tree.token = sexpr_pair_token_data.first;
+      tree.data = sexpr_pair_token_data.second;
+
       while (input.back().first != Token::rbracket) {
         print::prn("child");
         // we cant hit a function, doesn't make sense, only T, '(', or ')'
@@ -138,21 +153,20 @@ std::pair<SyntaxTree, std::size_t> make_tree(
           tree.children.push_back(terminal);
           input.pop_back();
         } else if (input.back().first == Token::lbracket) {
-          auto pair_tree_size = make_tree(input);
-          tree.children.push_back(pair_tree_size.first);
-          while (input.size() != pair_tree_size.second) {
+          auto child_pair_tree_size = make_tree(input);
+          tree.children.push_back(child_pair_tree_size.first);
+          while (input.size() != child_pair_tree_size.second) {
             input.pop_back();
           }
-        } else if (input.back().first == Token::rbracket) {
-          input.pop_back();
-          break;
         }
       }
 
-      // pop rbracket
+      print::prn("MUST BE ')': ", input.back().second);
+      assert(input.back().second == ')');
       input.pop_back();
       break;
     }
+    print::prn("ending loop");
   }
   return std::make_pair(tree, input.size());
 }
