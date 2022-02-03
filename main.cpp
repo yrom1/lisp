@@ -61,26 +61,58 @@ struct SyntaxTree {
   std::vector<SyntaxTree> children;
 };
 
-auto parse_elem(char input) {
-  std::string elem = {input};
+auto parse_elem(std::string elem) {
+  print::prn("parse:", elem);
   if (elem == "(") return Token::lbracket;
   if (elem == ")") return Token::rbracket;
   if (std::regex_search(elem, std::regex("\\+|-"))) return Token::function;
-  if (std::regex_search(elem, std::regex("[0-9]"))) return Token::terminal;
+  if (std::regex_search(elem, std::regex("[0-9]*"))) return Token::terminal;
   return Token::nomatch;
 }
 
+auto add_spaces_around_brackets(std::string input) {
+  std::string clean_input;
+  print::prn(input, "->", clean_input);
+  for (auto elem : input) {
+    if (elem == '(' || elem == ')') {
+      // FIXME if in the future I implement strings this needs fixing
+      // TODO(yrom1) Please tell me I can do this in one line
+      std::string elem_str(1, elem);
+      std::string space(" ");
+      clean_input += space + elem_str + space;
+    } else {
+      clean_input += elem;
+    }
+  }
+  print::prn(input, "->", clean_input);
+  return clean_input;
+}
+
 auto lex(std::string input) {
-  std::vector<std::pair<Token::Token, char>> lex_input;
-  std::string current;
+  // (+ 1) valid input
+  // (+1) not valid input
+  std::vector<std::pair<Token::Token, std::string>> lex_input;
+  auto clean_input = add_spaces_around_brackets(input);
   // TODO(yrom1): switch from char to std::string
   //              (+ 42) -> 6 right now lol
+  std::string token;
   for (auto elem : input) {
-    if (elem == ' ') {
+    if (elem == ' ' && token.size() == 0) {
+      print::prn("--0");
       continue;
+    } else if (elem == ' ' && token.size() != 0) {
+      print::prn("--1");
+      print::prn("end of token: ", token);
+      lex_input.push_back(
+          std::make_pair(parse_elem(std::string(token)), token));
+      token.clear();
+    } else {
+      print::prn("--2");
+      token += elem;
     }
-    auto elem_token = parse_elem(elem);
-    lex_input.push_back(std::make_pair(elem_token, elem));
+  }
+  if (token.size() != 0) {
+    lex_input.push_back(std::make_pair(parse_elem(std::string(token)), token));
   }
   return lex_input;
 }
@@ -108,7 +140,7 @@ void print_tree(const SyntaxTree& input) {
 
 //  std::vector<Token::Token>>::size
 std::pair<SyntaxTree, std::size_t> make_tree(
-    std::vector<std::pair<Token::Token, char>> input) {
+    std::vector<std::pair<Token::Token, std::string>> input) {
   SyntaxTree tree;
   while (input.size() != 0) {
     print::prn("input.size", input.size(), input.back().second);
@@ -167,7 +199,7 @@ std::pair<SyntaxTree, std::size_t> make_tree(
       }
 
       print::prn("MUST BE ')': ", input.back().second);
-      assert(input.back().second == ')');
+      assert(input.back().second == ")");
       input.pop_back();
       break;
     }
@@ -178,8 +210,6 @@ std::pair<SyntaxTree, std::size_t> make_tree(
 
 template <typename T>
 auto tree_reduce(SyntaxTree tree, T binary_operator) {
-  // children can either be F or T
-  print::prn("--2");
   auto total = binary_operator(eval(tree.children[0]), eval(tree.children[1]));
   if (tree.children.size() - 2 > 0) {
     for (size_t i = 2; i < tree.children.size() - 1; ++i) {
