@@ -178,27 +178,13 @@ std::pair<SyntaxTree, std::size_t> make_tree(
 
 template <typename T>
 auto tree_reduce(SyntaxTree tree, T binary_operator) {
-  print::prn("before ", tree.children.size());
-  print::prn("--0");
-  auto total = eval(tree.children[0]);
-  print::prn("--5");
-  tree = tree.children[1];
-  print::prn("--4");
-  print::prn("after ", tree.children.size());
-  while (tree.children.size() != 0) {
-    print::prn("--1");
-    // children can either be F or T
-    if (tree.children.back().token == Token::terminal) {
-      print::prn("--2");
-      total = binary_operator(total, std::stoi(tree.children.back().data));
-      tree.children.pop_back();
-    } else if (tree.children.back().token == Token::function) {
-      print::prn("--3");
-      total = binary_operator(total, eval(tree.children.back()));
-      tree.children.pop_back();
-    } else {
-      print::prn("ERROR: Can't eval token during reduce!");
-      return -42;  // TEMP
+  // children can either be F or T
+  print::prn("--2");
+  auto total = binary_operator(eval(tree.children[0]), eval(tree.children[1]));
+  if (tree.children.size() - 2 > 0) {
+    for (size_t i = 2; i < tree.children.size() - 1; ++i) {
+      total +=
+          binary_operator(eval(tree.children[i]), eval(tree.children[i + 1]));
     }
   }
   return total;
