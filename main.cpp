@@ -171,6 +171,40 @@ std::pair<SyntaxTree, std::size_t> make_tree(
   return std::make_pair(tree, input.size());
 }
 
+int eval(SyntaxTree tree) {
+  if (tree.token == Token::terminal) {
+    return std::stoi(tree.data);
+  } else if (tree.token == Token::function) {
+    // TODO(yrom1) implement functions
+    // just '+' for now hard coded
+    // FIXME total can overflow
+    // (+) -> 0 in sbcl
+    if (tree.data == "+") {
+      int total = 0;
+      while (tree.children.size() != 0) {
+        // children can either be F or T
+        if (tree.children.back().token == Token::terminal) {
+          total += std::stoi(tree.children.back().data);
+          tree.children.pop_back();
+        } else if (tree.children.back().token == Token::function) {
+          total += eval(tree.children.back());
+          tree.children.pop_back();
+        } else {
+          print::prn("ERROR: Can't eval token in '+' function!");
+          return -42;
+        }
+      }
+      return total;
+    } else {
+      print::prn("ERROR: Can't recognize function!");
+      return -42;  // TEMP
+    }
+  } else {
+    print::prn("ERROR: Can't eval tree token!");
+    return -42;  // TEMP
+  }
+}
+
 int main() {
   std::cout << std::string("lisp> ");
   std::string input;
@@ -181,5 +215,9 @@ int main() {
   print::prn(lex_input);
   auto tree_size_pair = make_tree(lex_input);
   print_tree(tree_size_pair.first);
+  // if it's not error happened
+  assert(tree_size_pair.second == 0);
+  // TEMP testing single int
+  print::prn("eval: ", eval(tree_size_pair.first));
   std::cout << input << std::endl;
 }
