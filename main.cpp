@@ -206,7 +206,6 @@ namespace Converter {
 namespace __detail {
 
 Type::Type parse_underlying_type(SyntaxTree tree) {
-  // DONE
   // FIXME(yrom1): this is kinda code repetition from parsing
   //               but it's only for terminals
   if (std::regex_search(tree.data, std::regex("[0-9]*"))) return Type::number;
@@ -214,27 +213,24 @@ Type::Type parse_underlying_type(SyntaxTree tree) {
 }
 
 auto get_terminal_to_underlying_converter(SyntaxTree tree) {
-  // DONE
   if (parse_underlying_type(tree) == Type::number)
     return [](std::string input) { return std::stoi(input); };
+  // FIXME(yrom1): control reaches end of non-void function
 }
 
 template <typename T>
 auto string_to_underlying(std::string input, T converter) {
-  // DONE
   return converter(input);
 }
 
 template <typename T>
 auto underlying_to_string(T input) {
-  // DONE
   return std::to_string(input);
 }
 
 }  // namespace __detail
 
 auto terminal_to_underlying(SyntaxTree tree) {
-  // DONE
   assert(tree.token == Token::terminal);
   return __detail::string_to_underlying(
       tree.data, __detail::get_terminal_to_underlying_converter(tree));
@@ -242,7 +238,6 @@ auto terminal_to_underlying(SyntaxTree tree) {
 
 template <typename T>
 SyntaxTree underlying_to_terminal(T input) {
-  // DONE
   return {Token::terminal, __detail::underlying_to_string(input), {}};
 }
 
@@ -265,7 +260,6 @@ SyntaxTree tree_reduce(SyntaxTree tree, T binary_operator) {
 
 template <typename T, typename U>
 SyntaxTree arity_dispatch(SyntaxTree tree, T uniary_op, U binary_op) {
-  // DONE
   // TODO(yrom1): this could be more elegant somehow
   //              (-) doesn't have a no-arity dispatch... so...
   if (tree.children.size() == 0 || tree.children.size() == 1) {
@@ -276,7 +270,6 @@ SyntaxTree arity_dispatch(SyntaxTree tree, T uniary_op, U binary_op) {
 }
 
 SyntaxTree add_unary(SyntaxTree tree) {
-  // DONE
   if (tree.children.size() == 0) {
     return {Token::terminal, "0", {}};
   } else {
@@ -285,17 +278,14 @@ SyntaxTree add_unary(SyntaxTree tree) {
 }
 
 SyntaxTree add_binary(SyntaxTree tree) {
-  // DONE
   return tree_reduce(tree, std::plus<>());
 }
 
 SyntaxTree add(SyntaxTree tree) {
-  // DONE
   return arity_dispatch(tree, add_unary, add_binary);
 }
 
 SyntaxTree minus_unary(SyntaxTree tree) {
-  // DONE
   if (tree.children.size() == 0) {
     return {Token::error, "ERROR: Unary minus needs one child!", {}};
   } else {
@@ -306,17 +296,14 @@ SyntaxTree minus_unary(SyntaxTree tree) {
 }
 
 SyntaxTree minus_binary(SyntaxTree tree) {
-  // DONE
   return tree_reduce(tree, std::minus<>());
 }
 
 SyntaxTree minus(SyntaxTree tree) {
-  // DONE
   return arity_dispatch(tree, minus_unary, minus_binary);
 }
 
 SyntaxTree dispatch(SyntaxTree tree) {
-  // DONE
   if (tree.data == "+") {
     return add(tree);
   }
@@ -327,7 +314,6 @@ SyntaxTree dispatch(SyntaxTree tree) {
 }
 
 SyntaxTree string_to_tree(std::string input) {
-  // DONE
   // -- Lex --
   auto lex_input = lex(input);
   print::prn(lex_input);
@@ -344,7 +330,6 @@ SyntaxTree string_to_tree(std::string input) {
 }
 
 SyntaxTree read() {
-  // DONE
   std::cout << std::string("lisp> ");
   std::string input;
   std::getline(std::cin, input);
@@ -354,7 +339,6 @@ SyntaxTree read() {
 // string_to_underlying(tree.data, get_underlying_converter(tree.data));
 
 SyntaxTree eval(SyntaxTree tree) {
-  // DONE
   if (tree.token == Token::terminal) {
     return tree;
   } else if (tree.token == Token::function) {
@@ -365,7 +349,6 @@ SyntaxTree eval(SyntaxTree tree) {
 }
 
 std::string tree_to_string(SyntaxTree tree) {
-  // DONE... probably wrong
   std::string output;
   print::pr(tree.token, tree.data);
   if (tree.token == Token::terminal) {
@@ -387,23 +370,17 @@ std::string tree_to_string(SyntaxTree tree) {
   return output;
 }
 
-void _print(SyntaxTree tree) {
-  // DONE
-  std::cout << tree_to_string(tree) << std::endl;
-}
+void _print(SyntaxTree tree) { std::cout << tree_to_string(tree) << std::endl; }
 
 void print_tree(SyntaxTree tree) {
-  // DONE
   // TODO(yrom1) remove where-ever this is called with just print
   _print(tree);
 }
 std::string eval_string_to_string(std::string input) {
-  // DONE
   return tree_to_string(eval(string_to_tree(input)));
 }
 
 void run_tests() {
-  // DONE
   assert(eval_string_to_string("1") == "1");
   // assert(eval_string("()") == ???); // FIXME
   assert(eval_string_to_string("(+)") == "0");
@@ -418,7 +395,6 @@ void run_tests() {
 }
 
 void repl() {
-  // DONE
   while (true) {
     _print(eval(read()));
   }
