@@ -106,7 +106,10 @@ auto lex(std::string input) {
   auto split_clean_input = rsplit(clean_input, R"(\s)");
   std::vector<std::pair<Token::Token, std::string>> lex_input;
   for (auto token : split_clean_input) {
-    lex_input.push_back(std::make_pair(parse_elem(std::string(token)), token));
+    if (token.size() > 0) {
+      lex_input.push_back(
+          std::make_pair(parse_elem(std::string(token)), token));
+    }
   }
   return lex_input;
 }
