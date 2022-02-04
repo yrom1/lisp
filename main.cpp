@@ -233,7 +233,7 @@ auto underlying_to_string(T input) {
 
 }  // namespace __detail
 
-auto convert_terminal_to_underlying(SyntaxTree tree) {
+auto terminal_to_underlying(SyntaxTree tree) {
   // DONE
   assert(tree.token == Token::terminal);
   return __detail::string_to_underlying(
@@ -241,7 +241,7 @@ auto convert_terminal_to_underlying(SyntaxTree tree) {
 }
 
 template <typename T>
-SyntaxTree convert_underlying_to_terminal(T input) {
+SyntaxTree underlying_to_terminal(T input) {
   // DONE
   return {Token::terminal, __detail::underlying_to_string(input), {}};
 }
@@ -250,18 +250,14 @@ SyntaxTree convert_underlying_to_terminal(T input) {
 
 template <typename T>
 SyntaxTree tree_reduce(SyntaxTree tree, T binary_operator) {
-  // DONE
-  // TODO(yrom1): I'm pretty sure this can be done in one loop
-  auto output = Converter::convert_underlying_to_terminal(binary_operator(
-      Converter::convert_terminal_to_underlying(eval(tree.children[0])),
-      Converter::convert_terminal_to_underlying(eval(tree.children[1]))));
+  SyntaxTree output = Converter::underlying_to_terminal(binary_operator(
+      Converter::terminal_to_underlying(eval(tree.children[0])),
+      Converter::terminal_to_underlying(eval(tree.children[1]))));
   if (tree.children.size() - 2 > 0) {
-    for (size_t i = 2; i < tree.children.size() - 1; ++i) {
-      output += Converter::convert_underlying_to_terminal(
-          Converter::convert_terminal_to_underlying(
-              binary_operator(eval(tree.children[i])),
-              Converter::convert_terminal_to_underlying(
-                  eval(tree.children[i + 1]))));
+    for (size_t i = 2; i < tree.children.size(); ++i) {
+      output = Converter::underlying_to_terminal(binary_operator(
+          Converter::terminal_to_underlying(eval(output)),
+          Converter::terminal_to_underlying(eval(tree.children[i]))));
     }
   }
   return output;
@@ -304,8 +300,8 @@ SyntaxTree minus_unary(SyntaxTree tree) {
     return {Token::error, "ERROR: Unary minus needs one child!", {}};
   } else {
     // FIXME TEMP removing minus for debug
-    return Converter::convert_underlying_to_terminal(
-        -Converter::convert_terminal_to_underlying(eval(tree.children[0])));
+    return Converter::underlying_to_terminal(
+        -Converter::terminal_to_underlying(eval(tree.children[0])));
   }
 }
 
