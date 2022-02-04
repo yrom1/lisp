@@ -3,7 +3,7 @@
 #include "print.h"
 
 struct SyntaxTree;
-int eval(SyntaxTree tree);
+SyntaxTree eval(SyntaxTree);
 
 template <typename T>
 struct Data {
@@ -206,19 +206,21 @@ std::pair<SyntaxTree, std::size_t> make_tree(
 }
 
 template <typename T>
-auto tree_reduce(SyntaxTree tree, T binary_operator) {
-  auto total = binary_operator(eval(tree.children[0]), eval(tree.children[1]));
+std::string tree_reduce(SyntaxTree tree, T binary_operator) {
+  // FIXME use string to underlying converter
+  auto total = binary_operator(std::stoi(eval(tree.children[0])),
+                               std::stoi(eval(tree.children[1])));
   if (tree.children.size() - 2 > 0) {
     for (size_t i = 2; i < tree.children.size() - 1; ++i) {
-      total +=
-          binary_operator(eval(tree.children[i]), eval(tree.children[i + 1]));
+      total += binary_operator(std::stoi(eval(tree.children[i])),
+                               std::stoi(eval(tree.children[i + 1])));
     }
   }
-  return total;
+  return std::to_string(total);
 }
 
 template <typename T, typename U>
-auto arity_dispatch(SyntaxTree tree, T uniary_op, U binary_op) {
+std::string arity_dispatch(SyntaxTree tree, T uniary_op, U binary_op) {
   // TODO(yrom1): this could be more elegant somehow
   //              (-) doesn't have a no-arity dispatch... so...
   if (tree.children.size() == 0 || tree.children.size() == 1) {
@@ -228,57 +230,90 @@ auto arity_dispatch(SyntaxTree tree, T uniary_op, U binary_op) {
   }
 }
 
-auto add_unary(SyntaxTree tree) {
+std::string add_unary(SyntaxTree tree) {
   if (tree.children.size() == 0) {
-    return 0;
+    return std::to_string(0);
   } else {
     return eval(tree.children[0]);
   }
 }
 
-auto add_binary(SyntaxTree tree) { return tree_reduce(tree, std::plus<>()); }
+std::string add_binary(SyntaxTree tree) {
+  return tree_reduce(tree, std::plus<>());
+}
 
-auto add(SyntaxTree tree) {
+std::string add(SyntaxTree tree) {
   return arity_dispatch(tree, add_unary, add_binary);
 }
 
-auto minus_unary(SyntaxTree tree) {
+std::string minus_unary(SyntaxTree tree) {
   if (tree.children.size() == 0) {
     print::prn("ERROR: Unary minus needs one child!");
-    return -42;  // TEMP
+    return std::to_string(-42);  // TEMP
   } else {
-    return -eval(tree.children[0]);
+    // FIXME TEMP removing minus for debug
+    return eval(tree.children[0]);
   }
 }
 
-auto minus_binary(SyntaxTree tree) { return tree_reduce(tree, std::minus<>()); }
+std::string minus_binary(SyntaxTree tree) {
+  return tree_reduce(tree, std::minus<>());
+}
 
-auto minus(SyntaxTree tree) {
+std::string minus(SyntaxTree tree) {
   return arity_dispatch(tree, minus_unary, minus_binary);
 }
 
-auto dispatch(SyntaxTree tree) {
+std::string dispatch(SyntaxTree tree) {
   if (tree.data == "+") {
     return add(tree);
   }
   if (tree.data == "-") {
     return minus(tree);
   }
-  return -42;  // TEMP
+  return std::to_string(-42);  // TEMP
 }
 
-int eval(SyntaxTree tree) {
+namespace Type {
+// not enum class because I want it convertable to int for debugging
+enum Type {
+  number,
+  nomatch,
+};
+
+}  // namespace Type
+
+Type::Type parse_data_underlying_type(SyntaxTree tree) {
+  assert(tree.token == Token::terminal);
+  // TODO(yrom1): this is kinda code repetition from parsing
+  //              but it's only for terminals
+  if (std::regex_search(tree.data, std::regex("[0-9]*"))) return Type::number;
+  return Type::nomatch;
+}
+
+auto get_underlying_converter(SyntaxTree tree) {
+  if (parse_data_underlying_type(tree) == Type::number)
+    return [](SyntaxTree tree) { return std::stoi(tree.data); };
+}
+
+template <typename T>
+auto string_to_underlying(std::string input, T converter) {
+  return converter(input);
+}
+
+SyntaxTree eval(SyntaxTree tree) {
   if (tree.token == Token::terminal) {
-    return std::stoi(tree.data);
+    return string_to_underlying(tree.data, get_underlying_converter(tree.data));
   } else if (tree.token == Token::function) {
     return dispatch(tree);
   } else {
     print::prn("ERROR: Can't eval tree token!");
-    return -42;  // TEMP
+    return std::to_string(-42);  // TEMP
   }
 }
 
-auto eval_string(std::string input) {
+std::string print(std::string input) {
+  // TODO delete this function
   auto lex_input = lex(input);
   print::prn(lex_input);
   std::reverse(lex_input.begin(), lex_input.end());
@@ -294,27 +329,69 @@ auto eval_string(std::string input) {
   return output;
 }
 
-void repl() {
-  while (true) {
-    std::cout << std::string("lisp> ");
-    std::string input;
-    std::getline(std::cin, input);
-    print::prn(eval_string(input));
-  }
+SyntaxTree string_to_tree(std::string input) {
+  // DONE
+  // -- Lex --
+  auto lex_input = lex(input);
+  print::prn(lex_input);
+  std::reverse(lex_input.begin(), lex_input.end());
+  print::prn(lex_input);
+
+  // -- Parse --
+  auto tree_size_pair = make_tree(lex_input);
+  print_tree(tree_size_pair.first);
+  // if it's not an error happened, because we need to consume the entire
+  // lex'ed token vector into a tree
+  assert(tree_size_pair.second == 0);
+  return tree_size_pair.first;
+}
+
+SyntaxTree read() {
+  // DONE
+  std::cout << std::string("lisp> ");
+  std::string input;
+  std::getline(std::cin, input);
+  return string_to_tree(input);
+}
+
+SyntaxTree eval(SyntaxTree tree) {
+  return;
+}
+
+std::string tree_to_string(SyntaxTree tree) {
+  return;
+}
+
+void print(SyntaxTree tree) {
+  // DONE
+  std::cout << tree_to_string(tree) << std::endl;
+}
+
+std::string eval_string_to_string(std::string input) {
+  // DONE
+  return tree_to_string(eval(string_to_tree(input)));
 }
 
 void run_tests() {
-  assert(eval_string("1") == 1);
+  // DONE
+  assert(eval_string("1") == "1");
   // assert(eval_string("()") == ???); // FIXME
-  assert(eval_string("(+)") == 0);
-  assert(eval_string("(+ 1 2 3 4)") == 10);
-  assert(eval_string("(+ 1 (+ 2))") == 3);
-  assert(eval_string("(+ (+ 1 2) (+ 3 4))") == 10);
-  assert(eval_string("(+ (+ (+ (+ 2))))") == 2);
-  assert(eval_string("(- 1)") == -1);
-  assert(eval_string("(- 4 2)") == 2);
-  assert(eval_string("(- (- 1))") == 1);
-  assert(eval_string("(+ 1 (- 4 2))") == 3);
+  assert(eval_string_to_string("(+)") == "0");
+  assert(eval_string_to_string("(+ 1 2 3 4)") == "10");
+  assert(eval_string_to_string("(+ 1 (+ 2))") == "3");
+  assert(eval_string_to_string("(+ (+ 1 2) (+ 3 4))") == "10");
+  assert(eval_string_to_string("(+ (+ (+ (+ 2))))") == "2");
+  assert(eval_string_to_string("(- 1)") == "-1");
+  assert(eval_string_to_string("(- 4 2)") == "2");
+  assert(eval_string_to_string("(- (- 1))") == "1");
+  assert(eval_string_to_string("(+ 1 (- 4 2))") == "3");
+}
+
+void repl() {
+  // DONE
+  while (true) {
+    print(eval(read()));
+  }
 }
 
 int main() {
