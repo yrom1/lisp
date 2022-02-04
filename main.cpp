@@ -65,7 +65,7 @@ auto parse_elem(std::string elem) {
   print::prn("parse:", elem);
   if (elem == "(") return Token::lbracket;
   if (elem == ")") return Token::rbracket;
-  if (std::regex_search(elem, std::regex("\\+|-"))) return Token::function;
+  if (std::regex_search(elem, std::regex("^[\\+|-]$"))) return Token::function;
   if (std::regex_search(elem, std::regex("[0-9]*"))) return Token::terminal;
   return Token::nomatch;
 }
@@ -88,30 +88,24 @@ auto add_spaces_around_brackets(std::string input) {
   return clean_input;
 }
 
+std::vector<std::string> rsplit(const std::string& s,
+                                const std::string& regular_expression) {
+  const std::regex rgx(regular_expression);
+  std::sregex_token_iterator iter(s.begin(), s.end(), rgx, -1);
+  std::vector<std::string> output;
+  for (std::sregex_token_iterator end; iter != end; ++iter) {
+    output.push_back(iter->str());
+  }
+  return output;
+}
+
 auto lex(std::string input) {
   // (+ 1) valid input
   // (+1) not valid input
-  std::vector<std::pair<Token::Token, std::string>> lex_input;
   auto clean_input = add_spaces_around_brackets(input);
-  // TODO(yrom1): switch from char to std::string
-  //              (+ 42) -> 6 right now lol
-  std::string token;
-  for (auto elem : input) {
-    if (elem == ' ' && token.size() == 0) {
-      print::prn("--0");
-      continue;
-    } else if (elem == ' ' && token.size() != 0) {
-      print::prn("--1");
-      print::prn("end of token: ", token);
-      lex_input.push_back(
-          std::make_pair(parse_elem(std::string(token)), token));
-      token.clear();
-    } else {
-      print::prn("--2");
-      token += elem;
-    }
-  }
-  if (token.size() != 0) {
+  auto split_clean_input = rsplit(clean_input, R"(\s)");
+  std::vector<std::pair<Token::Token, std::string>> lex_input;
+  for (auto token : split_clean_input) {
     lex_input.push_back(std::make_pair(parse_elem(std::string(token)), token));
   }
   return lex_input;
