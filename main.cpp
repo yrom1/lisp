@@ -4,6 +4,7 @@
 
 struct SyntaxTree;
 SyntaxTree eval(SyntaxTree);
+void print_tree(SyntaxTree);  // TEMP remove
 
 template <typename T>
 struct Data {
@@ -192,6 +193,14 @@ std::pair<SyntaxTree, std::size_t> make_tree(
   return std::make_pair(tree, input.size());
 }
 
+namespace Type {
+// not enum class because I want it convertable to int for debugging
+enum Type {
+  number,
+  nomatch,
+};
+}  // namespace Type
+
 namespace Converter {
 
 namespace __detail {
@@ -207,7 +216,7 @@ Type::Type parse_underlying_type(SyntaxTree tree) {
 auto get_terminal_to_underlying_converter(SyntaxTree tree) {
   // DONE
   if (parse_underlying_type(tree) == Type::number)
-    return [](SyntaxTree tree) { return std::stoi(tree.data); };
+    return [](std::string input) { return std::stoi(input); };
 }
 
 template <typename T>
@@ -222,12 +231,13 @@ auto underlying_to_string(T input) {
   return std::to_string(input);
 }
 
-} // namespace __detail
+}  // namespace __detail
 
 auto convert_terminal_to_underlying(SyntaxTree tree) {
   // DONE
-  assert(tree.token == Token::terminal)
-  return __detail::string_to_underlying(tree.data, __detail::get_terminal_to_underlying_converter(tree));
+  assert(tree.token == Token::terminal);
+  return __detail::string_to_underlying(
+      tree.data, __detail::get_terminal_to_underlying_converter(tree));
 }
 
 template <typename T>
@@ -236,16 +246,22 @@ SyntaxTree convert_underlying_to_terminal(T input) {
   return {Token::terminal, __detail::underlying_to_string(input), {}};
 }
 
-} //namespace Converter
+}  // namespace Converter
 
 template <typename T>
 SyntaxTree tree_reduce(SyntaxTree tree, T binary_operator) {
   // DONE
   // TODO(yrom1): I'm pretty sure this can be done in one loop
-  auto output = Converter::convert_underlying_to_terminal(binary_operator(Converter::convert_terminal_to_underlying(eval(tree.children[0])), Converter::convert_terminal_to_underlying(eval(tree.children[1]))));
+  auto output = Converter::convert_underlying_to_terminal(binary_operator(
+      Converter::convert_terminal_to_underlying(eval(tree.children[0])),
+      Converter::convert_terminal_to_underlying(eval(tree.children[1]))));
   if (tree.children.size() - 2 > 0) {
     for (size_t i = 2; i < tree.children.size() - 1; ++i) {
-      output += Converter::convert_underlying_to_terminal(Converter::convert_terminal_to_underlying(binary_operator(eval(tree.children[i])), Converter::convert_terminal_to_underlying(eval(tree.children[i + 1]))));
+      output += Converter::convert_underlying_to_terminal(
+          Converter::convert_terminal_to_underlying(
+              binary_operator(eval(tree.children[i])),
+              Converter::convert_terminal_to_underlying(
+                  eval(tree.children[i + 1]))));
     }
   }
   return output;
@@ -285,10 +301,11 @@ SyntaxTree add(SyntaxTree tree) {
 SyntaxTree minus_unary(SyntaxTree tree) {
   // DONE
   if (tree.children.size() == 0) {
-    return {Token::error , "ERROR: Unary minus needs one child!", {}}
+    return {Token::error, "ERROR: Unary minus needs one child!", {}};
   } else {
     // FIXME TEMP removing minus for debug
-    return convert_underlying_to_terminal(-Converter::convert_terminal_to_underlying(eval(tree.children[0])));
+    return Converter::convert_underlying_to_terminal(
+        -Converter::convert_terminal_to_underlying(eval(tree.children[0])));
   }
 }
 
@@ -312,15 +329,6 @@ SyntaxTree dispatch(SyntaxTree tree) {
   }
   return {Token::error, "ERROR: Can't match data in function dispatch!", {}};
 }
-
-namespace Type {
-// not enum class because I want it convertable to int for debugging
-enum Type {
-  number,
-  nomatch,
-};
-
-}  // namespace Type
 
 SyntaxTree string_to_tree(std::string input) {
   // DONE
@@ -364,18 +372,18 @@ std::string tree_to_string(SyntaxTree tree) {
   // DONE... probably wrong
   std::string output;
   print::pr(tree.token, tree.data);
-  if (input.token == Token::terminal) {
-    return output.push_back(tree.data);
+  if (tree.token == Token::terminal) {
+    return output += tree.data;
   } else {
-    assert(tree.token == Token::function); // it shouldn't be anything else
-    output.push_back(" (");
-    output.push_back(token.data);
-    output.push_back(" ");
+    assert(tree.token == Token::function);  // it shouldn't be anything else
+    output += " (";
+    output += tree.data;
+    output += " ";
     std::cout << ('(');
-    for (const auto& i : input.children) {
-      output.push_back(tree_to_string(i));
+    for (const auto& i : tree.children) {
+      output += tree_to_string(i);
     }
-    output.push_back(") ");
+    output += ") ";
     std::cout << (')');
   }
   std::cout << '\n';
@@ -383,7 +391,7 @@ std::string tree_to_string(SyntaxTree tree) {
   return output;
 }
 
-void print(SyntaxTree tree) {
+void _print(SyntaxTree tree) {
   // DONE
   std::cout << tree_to_string(tree) << std::endl;
 }
@@ -391,7 +399,7 @@ void print(SyntaxTree tree) {
 void print_tree(SyntaxTree tree) {
   // DONE
   // TODO(yrom1) remove where-ever this is called with just print
-  print(tree);
+  _print(tree);
 }
 std::string eval_string_to_string(std::string input) {
   // DONE
@@ -400,7 +408,7 @@ std::string eval_string_to_string(std::string input) {
 
 void run_tests() {
   // DONE
-  assert(eval_string("1") == "1");
+  assert(eval_string_to_string("1") == "1");
   // assert(eval_string("()") == ???); // FIXME
   assert(eval_string_to_string("(+)") == "0");
   assert(eval_string_to_string("(+ 1 2 3 4)") == "10");
@@ -416,7 +424,7 @@ void run_tests() {
 void repl() {
   // DONE
   while (true) {
-    print(eval(read()));
+    _print(eval(read()));
   }
 }
 
