@@ -156,7 +156,7 @@ std::pair<SyntaxTree, std::size_t> make_tree(
     // Empty () pair -> NIL
     if (sexpr_pair_token_data.first == Token::rbracket) {
       tree.token = Token::nil;
-      tree.data = "NIL";
+      tree.data = "()";
       break;
     }
 
@@ -197,6 +197,7 @@ namespace Type {
 // not enum class because I want it convertable to int for debugging
 enum Type {
   number,
+  nil,
   nomatch,
 };
 }  // namespace Type
@@ -209,13 +210,17 @@ Type::Type parse_underlying_type(SyntaxTree tree) {
   // FIXME(yrom1): this is kinda code repetition from parsing
   //               but it's only for terminals
   if (std::regex_search(tree.data, std::regex("[0-9]*"))) return Type::number;
+  if (tree.token == Token::nil) return Type::nil;
   return Type::nomatch;
 }
 
 auto get_terminal_to_underlying_converter(SyntaxTree tree) {
+  // FIXME(yrom1) this is hopelessly broken in c++
   if (parse_underlying_type(tree) == Type::number)
     return [](std::string input) { return std::stoi(input); };
-  // FIXME(yrom1): control reaches end of non-void function
+  // if (parse_underlying_type(tree) == Type::nil)
+  //   return [](std::string input) { return input; };
+  // // FIXME(yrom1): control reaches end of non-void function
 }
 
 template <typename T>
@@ -339,7 +344,7 @@ SyntaxTree read() {
 // string_to_underlying(tree.data, get_underlying_converter(tree.data));
 
 SyntaxTree eval(SyntaxTree tree) {
-  if (tree.token == Token::terminal) {
+  if (tree.token == Token::nil || tree.token == Token::terminal) {
     return tree;
   } else if (tree.token == Token::function) {
     return dispatch(tree);
@@ -351,7 +356,7 @@ SyntaxTree eval(SyntaxTree tree) {
 std::string tree_to_string(SyntaxTree tree) {
   std::string output;
   print::pr(tree.token, tree.data);
-  if (tree.token == Token::terminal) {
+  if (tree.token == Token::terminal || tree.token == Token::nil) {
     return output += tree.data;
   } else {
     assert(tree.token == Token::function);  // it shouldn't be anything else
@@ -382,7 +387,7 @@ std::string eval_string_to_string(std::string input) {
 
 void run_tests() {
   assert(eval_string_to_string("1") == "1");
-  // assert(eval_string("()") == ???); // FIXME
+  assert(eval_string_to_string("()") == "()");
   assert(eval_string_to_string("(+)") == "0");
   assert(eval_string_to_string("(+ 1 2 3 4)") == "10");
   assert(eval_string_to_string("(+ 1 (+ 2))") == "3");
