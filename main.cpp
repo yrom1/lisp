@@ -420,14 +420,18 @@ std::string eval_string_to_string(std::string input) {
 // see https://jtra.cz/stuff/lisp/sclr/index.html
 
 void run_tests() {
+  // assert(eval_string_to_string("") == "");
   assert(eval_string_to_string("1") == "1");
   assert(eval_string_to_string("42") == "42");
   assert(eval_string_to_string("()") == "()");
   assert(eval_string_to_string("(list 1)") == "(list 1)");  // no (1) sugar
   assert(eval_string_to_string("(LIST 1)") == "(list 1)");
   assert(eval_string_to_string("(list 1 2)") == "(list 1 2)");
+  assert(eval_string_to_string("(list (list 1 2))") == "(list (list 1 2))");
+  assert(eval_string_to_string("(list 1 (+ 2 3))") == "(list 1 5)"); // FIXME(yrom1)
   assert(eval_string_to_string("(quote 1)") == "1");
   assert(eval_string_to_string("(quote (list 1 2))") == "(list 1 2)");
+  assert(eval_string_to_string("(quote (+ 1 2))") == "(+ 1 2)");
   assert(eval_string_to_string("(+)") == "0");
   assert(eval_string_to_string("(+ 1 2 3 4)") == "10");
   assert(eval_string_to_string("(+ 1 (+ 2))") == "3");
