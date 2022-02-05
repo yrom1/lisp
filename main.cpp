@@ -69,6 +69,7 @@ auto parse_elem(std::string elem) {
   if (elem == "(") return Token::lbracket;
   if (elem == ")") return Token::rbracket;
   // FUNCTIONS
+  // TODO(yrom1): why doesn't this regex work?
   // if (std::regex_search(elem, std::regex("\\w"))) return Token::function;
   if (std::regex_search(elem, std::regex("list"))) return Token::function;
   if (std::regex_search(elem, std::regex("quote"))) return Token::function;
@@ -319,10 +320,15 @@ SyntaxTree minus(SyntaxTree tree) {
 
 SyntaxTree list(SyntaxTree tree) {
   print::pr("for_each start:");
-  auto __print = [](SyntaxTree x) { std::cout << " " << x.data << " "; };
+  auto __print = [](SyntaxTree x) { std::cout << " " << x.data << ", "; };
   std::for_each(tree.children.begin(), tree.children.end(), __print);
   print::prn();
-  std::for_each(tree.children.begin(), tree.children.end(), eval);
+  // std::for_each(tree.children.begin(), tree.children.end(), eval);
+  for (auto& child : tree.children) {
+    print::prn("before: ", child.data);
+    child = eval(child);
+    print::prn("after: ", child.data);
+  }
   print::pr("for_each end:");
   std::for_each(tree.children.begin(), tree.children.end(), __print);
   print::prn();
@@ -428,7 +434,8 @@ void run_tests() {
   assert(eval_string_to_string("(LIST 1)") == "(list 1)");
   assert(eval_string_to_string("(list 1 2)") == "(list 1 2)");
   assert(eval_string_to_string("(list (list 1 2))") == "(list (list 1 2))");
-  assert(eval_string_to_string("(list 1 (+ 2 3))") == "(list 1 5)"); // FIXME(yrom1)
+  assert(eval_string_to_string("(list 1 (+ 2 3))") ==
+         "(list 1 5)");  // FIXME(yrom1)
   assert(eval_string_to_string("(quote 1)") == "1");
   assert(eval_string_to_string("(quote (list 1 2))") == "(list 1 2)");
   assert(eval_string_to_string("(quote (+ 1 2))") == "(+ 1 2)");
