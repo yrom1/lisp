@@ -112,6 +112,11 @@ auto lex(std::string input) {
   auto split_clean_input = rsplit(clean_input, R"(\s+)");
   std::vector<std::pair<Token::Token, std::string>> lex_input;
   for (auto token : split_clean_input) {
+    print::prn("token", token);
+    for (auto& c : token) {
+      c = ::tolower(c);
+    }
+    print::prn("lower token", token);
     if (token.size() > 0) {
       lex_input.push_back(
           std::make_pair(parse_elem(std::string(token)), token));
@@ -323,16 +328,19 @@ SyntaxTree list(SyntaxTree tree) {
   return tree;
 }
 
+SyntaxTree quote(SyntaxTree tree) {
+  assert(tree.token == Token::function);
+  assert(tree.data == "quote");
+  tree.data = "list";
+  assert(tree.data == "list");
+  return tree;
+}
+
 SyntaxTree dispatch(SyntaxTree tree) {
-  if (tree.data == "list") {
-    return list(tree);
-  }
-  if (tree.data == "+") {
-    return add(tree);
-  }
-  if (tree.data == "-") {
-    return minus(tree);
-  }
+  if (tree.data == "list") return list(tree);
+  if (tree.data == "quote") return list(tree);
+  if (tree.data == "+") return add(tree);
+  if (tree.data == "-") return minus(tree);
   return {Token::error, "ERROR: Can't match data in function dispatch!", {}};
 }
 
@@ -416,7 +424,10 @@ void run_tests() {
   assert(eval_string_to_string("42") == "42");
   assert(eval_string_to_string("()") == "()");
   assert(eval_string_to_string("(list 1)") == "(list 1)");  // no (1) sugar
+  assert(eval_string_to_string("(LIST 1)") == "(list 1)");  // no (1) sugar
   assert(eval_string_to_string("(list 1 2)") == "(list 1 2)");
+  assert(eval_string_to_string("(quote 1)") == "1");  // no (1) sugar
+  assert(eval_string_to_string("(quote (list 1 2))") == "(list 1 2)");
   assert(eval_string_to_string("(+)") == "0");
   assert(eval_string_to_string("(+ 1 2 3 4)") == "10");
   assert(eval_string_to_string("(+ 1 (+ 2))") == "3");
