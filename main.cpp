@@ -74,6 +74,7 @@ auto parse_elem(std::string elem) {
   // TODO(yrom1): why doesn't this regex work?
   // if (std::regex_search(elem, std::regex("\\w"))) return Token::function;
   // REFACTOR(yrom1): code repetition, this isnt a regex,e tc...
+  if (std::regex_search(elem, std::regex("atom"))) return Token::function;
   if (std::regex_search(elem, std::regex("cons"))) return Token::function;
   if (std::regex_search(elem, std::regex("eq"))) return Token::function;
   if (std::regex_search(elem, std::regex("car"))) return Token::function;
@@ -415,7 +416,27 @@ SyntaxTree cons(SyntaxTree tree) {
   return tree;
 }
 
+SyntaxTree atom(SyntaxTree tree) {
+  // true if not a cons
+  // in my implementation, true if not list, or not cons
+  // nil is a list, but not a cons so (atom ()) -> t
+  assert(tree.token == Token::function);
+  assert(tree.data == "atom");
+  assert(tree.children.size() == 1);
+  // TODO(yrom1): collapse first and third if...else into one
+  if (tree.children[0].token == Token::nil) {
+    return {Token::t, "t", {}};
+  } else if (tree.children[0].token == Token::function &&
+             (tree.children[0].data == "list" ||
+              tree.children[0].data == "cons")) {
+    return {Token::nil, "()", {}};
+  } else {
+    return {Token::t, "t", {}};
+  }
+}
+
 SyntaxTree dispatch(SyntaxTree tree) {
+  if (tree.data == "atom") return atom(tree);
   if (tree.data == "cons") return cons(tree);
   if (tree.data == "eq") return eq(tree);
   if (tree.data == "car") return car(tree);
@@ -516,6 +537,13 @@ void run_tests() {
   assert(eval_string_to_string("(cons 1 ())") == "(cons 1 ())");
   assert(eval_string_to_string("(cons 1 2)") == "(cons 1 2)");
   assert(eval_string_to_string("(cons () ())") == "(cons () ())");
+
+  assert(eval_string_to_string("(atom ())") == "t");
+  assert(eval_string_to_string("(atom (list 1))") == "()");
+  assert(eval_string_to_string("(atom (cons 1 2))") == "()");
+
+  // "(listp ())" == "t"
+
   assert(eval_string_to_string("(quote 1)") == "1");
   assert(eval_string_to_string("(quote (list 1 2))") == "(list 1 2)");
   assert(eval_string_to_string("(quote (+ 1 2))") == "(+ 1 2)");
