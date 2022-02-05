@@ -270,11 +270,14 @@ SyntaxTree tree_reduce(SyntaxTree tree, T binary_operator) {
   SyntaxTree output = Converter::underlying_to_terminal(binary_operator(
       Converter::terminal_to_underlying(eval(tree.children[0])),
       Converter::terminal_to_underlying(eval(tree.children[1]))));
+  // FIXME(yrom1): siplify to only one if, maybe while(!nil) {...}
   if (tree.children.size() - 2 > 0) {
     for (size_t i = 2; i < tree.children.size(); ++i) {
-      output = Converter::underlying_to_terminal(binary_operator(
-          Converter::terminal_to_underlying(eval(output)),
-          Converter::terminal_to_underlying(eval(tree.children[i]))));
+      if (tree.data != "()") {  // FIXME(yrom1): what about Token::t ?
+        output = Converter::underlying_to_terminal(binary_operator(
+            Converter::terminal_to_underlying(eval(output)),
+            Converter::terminal_to_underlying(eval(tree.children[i]))));
+      }
     }
   }
   return output;
@@ -335,6 +338,7 @@ SyntaxTree list(SyntaxTree tree) {
     child = eval(child);
     print::prn("after: ", child.data);
   }
+  tree.children.push_back({Token::nil, "()", {}});
   print::pr("for_each end:");
   std::for_each(tree.children.begin(), tree.children.end(), __print);
   print::prn();
@@ -361,7 +365,7 @@ SyntaxTree car(SyntaxTree tree) {
   print::prn("tree.children[0].children.size()", tree.children.size(),
              "tree.children[0].children.size()",
              tree.children[0].children.size());
-  return tree.children[0].children[0];
+  return eval(tree.children[0].children[0]);
 }
 
 SyntaxTree cdr(SyntaxTree tree) {
@@ -381,7 +385,7 @@ SyntaxTree cdr(SyntaxTree tree) {
     // tree.children[0].children[1::]
     tree.children[0].children = std::vector<SyntaxTree>(
         tree.children[0].children.begin() + 1, tree.children[0].children.end());
-    return tree.children[0];
+    return eval(tree.children[0]);
   }
 }
 
@@ -492,21 +496,25 @@ void run_tests() {
   // assert(eval_string_to_string("") == "");
   assert(eval_string_to_string("1") == "1");
   assert(eval_string_to_string("42") == "42");
-  assert(eval_string_to_string("()") == "()");              // no NIL sugar
-  assert(eval_string_to_string("(list 1)") == "(list 1)");  // no (1) sugar
-  assert(eval_string_to_string("(LIST 1)") == "(list 1)");  // everything lowercase
-  assert(eval_string_to_string("(list 1 2)") == "(list 1 2)");
-  assert(eval_string_to_string("(list (list 1 2))") == "(list (list 1 2))");
-  assert(eval_string_to_string("(list 1 (+ 2 3))") == "(list 1 5)");
+  assert(eval_string_to_string("()") == "()");                 // no NIL sugar
+  assert(eval_string_to_string("(list 1)") == "(list 1 ())");  // no (1) sugar
+  assert(eval_string_to_string("(LIST 1)") ==
+         "(list 1 ())");  // everything lowercase
+  assert(eval_string_to_string("(list 1 2)") == "(list 1 2 ())");
+  assert(eval_string_to_string("(list (list 1 2))") ==
+         "(list (list 1 2 ()) ())");
+  assert(eval_string_to_string("(list 1 (+ 2 3))") == "(list 1 5 ())");
   assert(eval_string_to_string("(quote 1)") == "1");
   assert(eval_string_to_string("(quote (list 1 2))") == "(list 1 2)");
   assert(eval_string_to_string("(quote (+ 1 2))") == "(+ 1 2)");
   assert(eval_string_to_string("(car (list 1 2))") == "1");
-  assert(eval_string_to_string("(car (list (list 1 2) 3 4))") == "(list 1 2)");
+  assert(eval_string_to_string("(car (list (list 1 2) 3 4))") ==
+         "(list 1 2 ())");
   assert(eval_string_to_string("(cdr ())") == "()");
   assert(eval_string_to_string("(cdr (list 1))") == "()");
-  assert(eval_string_to_string("(cdr (list 1 2))") == "(list 2)");
-  assert(eval_string_to_string("(cdr (list (list 1 2) 3 4))") == "(list 3 4)");
+  assert(eval_string_to_string("(cdr (list 1 2))") == "(list 2 ())");
+  assert(eval_string_to_string("(cdr (list (list 1 2) 3 4))") ==
+         "(list 3 4 ())");
   assert(eval_string_to_string("(eq 1 1)") == "t");
   assert(eval_string_to_string("(eq 1 2)") == "()");
   assert(eval_string_to_string("(eq (list 1 2) (list 1 2))") == "t");
