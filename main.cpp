@@ -68,6 +68,7 @@ auto parse_elem(std::string elem) {
   if (elem == "(") return Token::lbracket;
   if (elem == ")") return Token::rbracket;
   if (std::regex_search(elem, std::regex("^[\\+|-]$"))) return Token::function;
+  if (std::regex_search(elem, std::regex("quote"))) return Token::function;
   if (std::regex_search(elem, std::regex("[0-9]*"))) return Token::terminal;
   return Token::nomatch;
 }
@@ -90,14 +91,14 @@ auto add_spaces_around_brackets(std::string input) {
   return clean_input;
 }
 
-std::vector<std::string> rsplit(const std::string& s,
-                                const std::string& regular_expression) {
-  const std::regex rgx(regular_expression);
-  std::sregex_token_iterator iter(s.begin(), s.end(), rgx, -1);
+auto rsplit(std::string s, std::string rgx) {
   std::vector<std::string> output;
-  for (std::sregex_token_iterator end; iter != end; ++iter) {
-    output.push_back(iter->str());
-  }
+  std::regex re{rgx};
+  std::copy_if(std::sregex_token_iterator{s.begin(), s.end(), re, -1},
+               std::sregex_token_iterator{}, std::back_inserter(output),
+               [](auto i) { return true; });
+  print::prn("before: ", s);
+  print::prn("after: ", output);
   return output;
 }
 
@@ -105,7 +106,7 @@ auto lex(std::string input) {
   // (+ 1) valid input
   // (+1) not valid input
   auto clean_input = add_spaces_around_brackets(input);
-  auto split_clean_input = rsplit(clean_input, R"(\s*)");
+  auto split_clean_input = rsplit(clean_input, R"(\s+)");
   std::vector<std::pair<Token::Token, std::string>> lex_input;
   for (auto token : split_clean_input) {
     if (token.size() > 0) {
@@ -343,6 +344,8 @@ SyntaxTree read() {
 // somewher eelse
 // string_to_underlying(tree.data, get_underlying_converter(tree.data));
 
+// TODO(yrom1): code repetition in eval and tree_to_string
+
 SyntaxTree eval(SyntaxTree tree) {
   if (tree.token == Token::nil || tree.token == Token::terminal) {
     return tree;
@@ -355,7 +358,7 @@ SyntaxTree eval(SyntaxTree tree) {
 
 std::string tree_to_string(SyntaxTree tree) {
   std::string output;
-  print::pr(tree.token, tree.data);
+  print::prn(tree.token, tree.data);
   if (tree.token == Token::terminal || tree.token == Token::nil) {
     return output += tree.data;
   } else {
@@ -385,8 +388,12 @@ std::string eval_string_to_string(std::string input) {
   return tree_to_string(eval(string_to_tree(input)));
 }
 
+// TODO(yrom1): quote, atom, eq, car, cdr, cons, cond
+// see https://jtra.cz/stuff/lisp/sclr/index.html
+
 void run_tests() {
   assert(eval_string_to_string("1") == "1");
+  assert(eval_string_to_string("42") == "42");
   assert(eval_string_to_string("()") == "()");
   assert(eval_string_to_string("(+)") == "0");
   assert(eval_string_to_string("(+ 1 2 3 4)") == "10");
@@ -397,6 +404,7 @@ void run_tests() {
   assert(eval_string_to_string("(- 4 2)") == "2");
   assert(eval_string_to_string("(- (- 1))") == "1");
   assert(eval_string_to_string("(+ 1 (- 4 2))") == "3");
+  // assert(eval_string_to_string("(+ 1 ())") == "???"); // this core dumps
 }
 
 void repl() {
