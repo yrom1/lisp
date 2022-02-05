@@ -74,6 +74,7 @@ auto parse_elem(std::string elem) {
   // TODO(yrom1): why doesn't this regex work?
   // if (std::regex_search(elem, std::regex("\\w"))) return Token::function;
   // REFACTOR(yrom1): code repetition, this isnt a regex,e tc...
+  if (std::regex_search(elem, std::regex("cons"))) return Token::function;
   if (std::regex_search(elem, std::regex("eq"))) return Token::function;
   if (std::regex_search(elem, std::regex("car"))) return Token::function;
   if (std::regex_search(elem, std::regex("cdr"))) return Token::function;
@@ -407,7 +408,15 @@ SyntaxTree eq(SyntaxTree tree) {
   return tree;
 }
 
+SyntaxTree cons(SyntaxTree tree) {
+  assert(tree.token == Token::function);
+  assert(tree.data == "cons");
+  assert(tree.children.size() == 2);
+  return tree;
+}
+
 SyntaxTree dispatch(SyntaxTree tree) {
+  if (tree.data == "cons") return cons(tree);
   if (tree.data == "eq") return eq(tree);
   if (tree.data == "car") return car(tree);
   if (tree.data == "cdr") return cdr(tree);
@@ -504,6 +513,9 @@ void run_tests() {
   assert(eval_string_to_string("(list (list 1 2))") ==
          "(list (list 1 2 ()) ())");
   assert(eval_string_to_string("(list 1 (+ 2 3))") == "(list 1 5 ())");
+  assert(eval_string_to_string("(cons 1 ())") == "(cons 1 ())");
+  assert(eval_string_to_string("(cons 1 2)") == "(cons 1 2)");
+  assert(eval_string_to_string("(cons () ())") == "(cons () ())");
   assert(eval_string_to_string("(quote 1)") == "1");
   assert(eval_string_to_string("(quote (list 1 2))") == "(list 1 2)");
   assert(eval_string_to_string("(quote (+ 1 2))") == "(+ 1 2)");
