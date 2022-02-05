@@ -71,6 +71,7 @@ auto parse_elem(std::string elem) {
   // FUNCTIONS
   // TODO(yrom1): why doesn't this regex work?
   // if (std::regex_search(elem, std::regex("\\w"))) return Token::function;
+  if (std::regex_search(elem, std::regex("car"))) return Token::function;
   if (std::regex_search(elem, std::regex("list"))) return Token::function;
   if (std::regex_search(elem, std::regex("quote"))) return Token::function;
   if (std::regex_search(elem, std::regex("^[\\+|-]$"))) return Token::function;
@@ -346,7 +347,20 @@ SyntaxTree quote(SyntaxTree tree) {
   return tree;
 }
 
+SyntaxTree car(SyntaxTree tree) {
+  print::prn("calling car");
+  assert(tree.token == Token::function);
+  assert(tree.data == "car");
+  assert(tree.children.size() > 0);
+  assert(tree.children[0].data == "list");
+  print::prn("tree.children[0].children.size()", tree.children.size(),
+             "tree.children[0].children.size()",
+             tree.children[0].children.size());
+  return tree.children[0].children[0];
+}
+
 SyntaxTree dispatch(SyntaxTree tree) {
+  if (tree.data == "car") return car(tree);
   if (tree.data == "list") return list(tree);
   if (tree.data == "quote") return quote(tree);
   if (tree.data == "+") return add(tree);
@@ -390,6 +404,7 @@ SyntaxTree eval(SyntaxTree tree) {
 }
 
 std::string tree_to_string(SyntaxTree tree) {
+  // TODO(yrom1): proper lists vs improper lists
   std::string output;
   print::prn(tree.token, tree.data);
   if (tree.token == Token::terminal || tree.token == Token::nil) {
@@ -434,11 +449,12 @@ void run_tests() {
   assert(eval_string_to_string("(LIST 1)") == "(list 1)");
   assert(eval_string_to_string("(list 1 2)") == "(list 1 2)");
   assert(eval_string_to_string("(list (list 1 2))") == "(list (list 1 2))");
-  assert(eval_string_to_string("(list 1 (+ 2 3))") ==
-         "(list 1 5)");  // FIXME(yrom1)
+  assert(eval_string_to_string("(list 1 (+ 2 3))") == "(list 1 5)");
   assert(eval_string_to_string("(quote 1)") == "1");
   assert(eval_string_to_string("(quote (list 1 2))") == "(list 1 2)");
   assert(eval_string_to_string("(quote (+ 1 2))") == "(+ 1 2)");
+  assert(eval_string_to_string("(car (list 1 2))") == "1");
+  assert(eval_string_to_string("(car (list (list 1 2) 3 4))") == "(list 1 2)");
   assert(eval_string_to_string("(+)") == "0");
   assert(eval_string_to_string("(+ 1 2 3 4)") == "10");
   assert(eval_string_to_string("(+ 1 (+ 2))") == "3");
