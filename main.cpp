@@ -4,6 +4,7 @@
 
 struct SyntaxTree;
 SyntaxTree eval(SyntaxTree);
+std::string tree_to_string(SyntaxTree);
 void print_tree(SyntaxTree);  // TEMP remove
 
 template <typename T>
@@ -49,7 +50,8 @@ enum Token {
   rbracket,
   function,
   terminal,
-  nil,  // REFACTOR should nil just be a terminal?
+  t,
+  nil,
   nomatch,
   error,
 };
@@ -71,6 +73,8 @@ auto parse_elem(std::string elem) {
   // FUNCTIONS
   // TODO(yrom1): why doesn't this regex work?
   // if (std::regex_search(elem, std::regex("\\w"))) return Token::function;
+  // REFACTOR(yrom1): code repetition, this isnt a regex,e tc...
+  if (std::regex_search(elem, std::regex("eq"))) return Token::function;
   if (std::regex_search(elem, std::regex("car"))) return Token::function;
   if (std::regex_search(elem, std::regex("cdr"))) return Token::function;
   if (std::regex_search(elem, std::regex("list"))) return Token::function;
@@ -373,15 +377,34 @@ SyntaxTree cdr(SyntaxTree tree) {
              tree.children[0].children.size() <= 1) {
     return {Token::nil, "()", {}};
   } else {
-    // assert(tree.children[0].children.data == "list");
-    // return tree.children[1::]
+    assert(tree.children[0].data == "list");
+    // tree.children[0].children[1::]
     tree.children[0].children = std::vector<SyntaxTree>(
         tree.children[0].children.begin() + 1, tree.children[0].children.end());
     return tree.children[0];
   }
 }
 
+SyntaxTree eq(SyntaxTree tree) {
+  assert(tree.token == Token::function);
+  assert(tree.data == "eq");
+  assert(tree.children.size() == 2);
+  // FIXME(yrom1): need to recheck after symbols are added
+  //               is (eq 3 3) -> t?
+  if (&tree.children[0] == &tree.children[1] ||
+      tree_to_string(tree.children[0]) == tree_to_string(tree.children[1])) {
+    tree.token = Token::t;
+    tree.data = "t";
+  } else {
+    tree.token = Token::nil;
+    tree.data = "()";
+  }
+  tree.children.clear();
+  return tree;
+}
+
 SyntaxTree dispatch(SyntaxTree tree) {
+  if (tree.data == "eq") return eq(tree);
   if (tree.data == "car") return car(tree);
   if (tree.data == "cdr") return cdr(tree);
   if (tree.data == "list") return list(tree);
@@ -430,7 +453,8 @@ std::string tree_to_string(SyntaxTree tree) {
   // TODO(yrom1): proper lists vs improper lists
   std::string output;
   print::prn(tree.token, tree.data);
-  if (tree.token == Token::terminal || tree.token == Token::nil) {
+  if (tree.token == Token::terminal || tree.token == Token::nil ||
+      tree.token == Token::t) {
     return output += tree.data;
   } else {
     assert(tree.token == Token::function);  // it shouldn't be anything else
@@ -482,6 +506,13 @@ void run_tests() {
   assert(eval_string_to_string("(cdr (list 1))") == "()");
   assert(eval_string_to_string("(cdr (list 1 2))") == "(list 2)");
   assert(eval_string_to_string("(cdr (list (list 1 2) 3 4))") == "(list 3 4)");
+  assert(eval_string_to_string("(eq 1 1)") == "t");
+  assert(eval_string_to_string("(eq 1 2)") == "()");
+  assert(eval_string_to_string("(eq (list 1 2) (list 1 2))") == "t");
+  assert(eval_string_to_string("(eq (list 1 (+ 2 3)) (list 1 (+ 2 3)))") ==
+         "t");
+  assert(eval_string_to_string("(eq (list 1 (+ 2 3)) (list 1 (+ 2 4)))") ==
+         "()");
   assert(eval_string_to_string("(+)") == "0");
   assert(eval_string_to_string("(+ 1 2 3 4)") == "10");
   assert(eval_string_to_string("(+ 1 (+ 2))") == "3");
