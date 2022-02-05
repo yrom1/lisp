@@ -49,7 +49,7 @@ enum Token {
   rbracket,
   function,
   terminal,
-  nil,
+  nil,  // REFACTOR should nil just be a terminal?
   nomatch,
   error,
 };
@@ -65,10 +65,14 @@ struct SyntaxTree {
 
 auto parse_elem(std::string elem) {
   print::prn("parse:", elem);
+  // LISPS
   if (elem == "(") return Token::lbracket;
   if (elem == ")") return Token::rbracket;
-  if (std::regex_search(elem, std::regex("^[\\+|-]$"))) return Token::function;
+  // FUNCTIONS
+  if (std::regex_search(elem, std::regex("list"))) return Token::function;
   if (std::regex_search(elem, std::regex("quote"))) return Token::function;
+  if (std::regex_search(elem, std::regex("^[\\+|-]$"))) return Token::function;
+  // TERMINALS
   if (std::regex_search(elem, std::regex("[0-9]*"))) return Token::terminal;
   return Token::nomatch;
 }
@@ -94,9 +98,8 @@ auto add_spaces_around_brackets(std::string input) {
 auto rsplit(std::string s, std::string rgx) {
   std::vector<std::string> output;
   std::regex re{rgx};
-  std::copy_if(std::sregex_token_iterator{s.begin(), s.end(), re, -1},
-               std::sregex_token_iterator{}, std::back_inserter(output),
-               [](auto i) { return true; });
+  std::copy(std::sregex_token_iterator{s.begin(), s.end(), re, -1},
+            std::sregex_token_iterator{}, std::back_inserter(output));
   print::prn("before: ", s);
   print::prn("after: ", output);
   return output;
@@ -295,7 +298,6 @@ SyntaxTree minus_unary(SyntaxTree tree) {
   if (tree.children.size() == 0) {
     return {Token::error, "ERROR: Unary minus needs one child!", {}};
   } else {
-    // FIXME TEMP removing minus for debug
     return Converter::underlying_to_terminal(
         -Converter::terminal_to_underlying(eval(tree.children[0])));
   }
@@ -309,7 +311,22 @@ SyntaxTree minus(SyntaxTree tree) {
   return arity_dispatch(tree, minus_unary, minus_binary);
 }
 
+SyntaxTree list(SyntaxTree tree) {
+  print::pr("for_each start:");
+  auto __print = [](SyntaxTree x) { std::cout << " " << x.data << " "; };
+  std::for_each(tree.children.begin(), tree.children.end(), __print);
+  print::prn();
+  std::for_each(tree.children.begin(), tree.children.end(), eval);
+  print::pr("for_each end:");
+  std::for_each(tree.children.begin(), tree.children.end(), __print);
+  print::prn();
+  return tree;
+}
+
 SyntaxTree dispatch(SyntaxTree tree) {
+  if (tree.data == "list") {
+    return list(tree);
+  }
   if (tree.data == "+") {
     return add(tree);
   }
@@ -331,7 +348,7 @@ SyntaxTree string_to_tree(std::string input) {
   print_tree(tree_size_pair.first);
   // if it's not an error happened, because we need to consume the entire
   // lex'ed token vector into a tree
-  assert(tree_size_pair.second == 0);
+  //  assert(tree_size_pair.second == 0);
   return tree_size_pair.first;
 }
 
@@ -357,24 +374,27 @@ SyntaxTree eval(SyntaxTree tree) {
 }
 
 std::string tree_to_string(SyntaxTree tree) {
+  // FIXME(yrom1): "(list 1)" -> " (list 1) "
+  // FIXME(yrom1): "(list 1 2)" -> " (list 12) "
   std::string output;
   print::prn(tree.token, tree.data);
   if (tree.token == Token::terminal || tree.token == Token::nil) {
     return output += tree.data;
   } else {
     assert(tree.token == Token::function);  // it shouldn't be anything else
-    output += " (";
+    output += "(";
     output += tree.data;
-    output += " ";
-    std::cout << ('(');
+    // if (tree.children.size() != 0) {
+    //   output += " ";
+    // }
     for (const auto& i : tree.children) {
+      output += " ";
       output += tree_to_string(i);
     }
-    output += ") ";
-    std::cout << (')');
+    output += ")";
   }
   std::cout << '\n';
-  print::prn(output);
+  print::prn("tree_to_string: ", output);
   return output;
 }
 
@@ -388,13 +408,15 @@ std::string eval_string_to_string(std::string input) {
   return tree_to_string(eval(string_to_tree(input)));
 }
 
-// TODO(yrom1): quote, atom, eq, car, cdr, cons, cond
+// TODO(yrom1): list, quote, atom, eq, car, cdr, cons, cond
 // see https://jtra.cz/stuff/lisp/sclr/index.html
 
 void run_tests() {
   assert(eval_string_to_string("1") == "1");
   assert(eval_string_to_string("42") == "42");
   assert(eval_string_to_string("()") == "()");
+  assert(eval_string_to_string("(list 1)") == "(list 1)");  // no (1) sugar
+  assert(eval_string_to_string("(list 1 2)") == "(list 1 2)");
   assert(eval_string_to_string("(+)") == "0");
   assert(eval_string_to_string("(+ 1 2 3 4)") == "10");
   assert(eval_string_to_string("(+ 1 (+ 2))") == "3");
@@ -404,7 +426,10 @@ void run_tests() {
   assert(eval_string_to_string("(- 4 2)") == "2");
   assert(eval_string_to_string("(- (- 1))") == "1");
   assert(eval_string_to_string("(+ 1 (- 4 2))") == "3");
-  // assert(eval_string_to_string("(+ 1 ())") == "???"); // this core dumps
+  assert(eval_string_to_string("(+ 9999999 1)") == "10000000");
+  // assert(eval_string_to_string("(+ 99999999999999999999 1)") ==
+  // "100000000000000000000"); // dumps on stoi assert(eval_string_to_string("(+
+  // 1 ())") == "???"); // this core dumps, pass error?
 }
 
 void repl() {
