@@ -440,6 +440,7 @@ SyntaxTree read() {
 // TODO(yrom1): code repetition in eval and tree_to_string
 
 SyntaxTree eval(SyntaxTree tree) {
+  // TODO(yrom1): should this include Token::t ?
   if (tree.token == Token::nil || tree.token == Token::terminal) {
     return tree;
   } else if (tree.token == Token::function) {
@@ -493,7 +494,7 @@ void run_tests() {
   assert(eval_string_to_string("42") == "42");
   assert(eval_string_to_string("()") == "()");              // no NIL sugar
   assert(eval_string_to_string("(list 1)") == "(list 1)");  // no (1) sugar
-  assert(eval_string_to_string("(LIST 1)") == "(list 1)");
+  assert(eval_string_to_string("(LIST 1)") == "(list 1)");  // everything lowercase
   assert(eval_string_to_string("(list 1 2)") == "(list 1 2)");
   assert(eval_string_to_string("(list (list 1 2))") == "(list (list 1 2))");
   assert(eval_string_to_string("(list 1 (+ 2 3))") == "(list 1 5)");
