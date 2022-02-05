@@ -69,6 +69,7 @@ auto parse_elem(std::string elem) {
   if (elem == "(") return Token::lbracket;
   if (elem == ")") return Token::rbracket;
   // FUNCTIONS
+  // if (std::regex_search(elem, std::regex("\\w"))) return Token::function;
   if (std::regex_search(elem, std::regex("list"))) return Token::function;
   if (std::regex_search(elem, std::regex("quote"))) return Token::function;
   if (std::regex_search(elem, std::regex("^[\\+|-]$"))) return Token::function;
@@ -331,14 +332,17 @@ SyntaxTree list(SyntaxTree tree) {
 SyntaxTree quote(SyntaxTree tree) {
   assert(tree.token == Token::function);
   assert(tree.data == "quote");
+  assert(tree.children.size() != 0);
+  print::prn("in quote, tree.data", tree.data, "tree.children.size",
+             tree.children.size());
+  if (tree.children.size() == 1) return tree.children[0];
   tree.data = "list";
-  assert(tree.data == "list");
   return tree;
 }
 
 SyntaxTree dispatch(SyntaxTree tree) {
   if (tree.data == "list") return list(tree);
-  if (tree.data == "quote") return list(tree);
+  if (tree.data == "quote") return quote(tree);
   if (tree.data == "+") return add(tree);
   if (tree.data == "-") return minus(tree);
   return {Token::error, "ERROR: Can't match data in function dispatch!", {}};
@@ -366,8 +370,6 @@ SyntaxTree read() {
   std::getline(std::cin, input);
   return string_to_tree(input);
 }
-// somewher eelse
-// string_to_underlying(tree.data, get_underlying_converter(tree.data));
 
 // TODO(yrom1): code repetition in eval and tree_to_string
 
@@ -382,8 +384,6 @@ SyntaxTree eval(SyntaxTree tree) {
 }
 
 std::string tree_to_string(SyntaxTree tree) {
-  // FIXME(yrom1): "(list 1)" -> " (list 1) "
-  // FIXME(yrom1): "(list 1 2)" -> " (list 12) "
   std::string output;
   print::prn(tree.token, tree.data);
   if (tree.token == Token::terminal || tree.token == Token::nil) {
@@ -424,9 +424,9 @@ void run_tests() {
   assert(eval_string_to_string("42") == "42");
   assert(eval_string_to_string("()") == "()");
   assert(eval_string_to_string("(list 1)") == "(list 1)");  // no (1) sugar
-  assert(eval_string_to_string("(LIST 1)") == "(list 1)");  // no (1) sugar
+  assert(eval_string_to_string("(LIST 1)") == "(list 1)");
   assert(eval_string_to_string("(list 1 2)") == "(list 1 2)");
-  assert(eval_string_to_string("(quote 1)") == "1");  // no (1) sugar
+  assert(eval_string_to_string("(quote 1)") == "1");
   assert(eval_string_to_string("(quote (list 1 2))") == "(list 1 2)");
   assert(eval_string_to_string("(+)") == "0");
   assert(eval_string_to_string("(+ 1 2 3 4)") == "10");
