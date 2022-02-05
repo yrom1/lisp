@@ -72,6 +72,7 @@ auto parse_elem(std::string elem) {
   // TODO(yrom1): why doesn't this regex work?
   // if (std::regex_search(elem, std::regex("\\w"))) return Token::function;
   if (std::regex_search(elem, std::regex("car"))) return Token::function;
+  if (std::regex_search(elem, std::regex("cdr"))) return Token::function;
   if (std::regex_search(elem, std::regex("list"))) return Token::function;
   if (std::regex_search(elem, std::regex("quote"))) return Token::function;
   if (std::regex_search(elem, std::regex("^[\\+|-]$"))) return Token::function;
@@ -359,8 +360,30 @@ SyntaxTree car(SyntaxTree tree) {
   return tree.children[0].children[0];
 }
 
+SyntaxTree cdr(SyntaxTree tree) {
+  print::prn("calling cdr");
+  // assert(tree.token == Token::function);
+  // assert(tree.data == "cdr");
+  // assert(tree.children.size() > 0);
+  if (tree.children[0].token == Token::nil) {
+    return tree.children[0];
+    // is this <= check needed? is (list) transformed to () before this
+    // function?
+  } else if (tree.children[0].data == "list" &&
+             tree.children[0].children.size() <= 1) {
+    return {Token::nil, "()", {}};
+  } else {
+    // assert(tree.children[0].children.data == "list");
+    // return tree.children[1::]
+    tree.children[0].children = std::vector<SyntaxTree>(
+        tree.children[0].children.begin() + 1, tree.children[0].children.end());
+    return tree.children[0];
+  }
+}
+
 SyntaxTree dispatch(SyntaxTree tree) {
   if (tree.data == "car") return car(tree);
+  if (tree.data == "cdr") return cdr(tree);
   if (tree.data == "list") return list(tree);
   if (tree.data == "quote") return quote(tree);
   if (tree.data == "+") return add(tree);
@@ -444,7 +467,7 @@ void run_tests() {
   // assert(eval_string_to_string("") == "");
   assert(eval_string_to_string("1") == "1");
   assert(eval_string_to_string("42") == "42");
-  assert(eval_string_to_string("()") == "()");
+  assert(eval_string_to_string("()") == "()");              // no NIL sugar
   assert(eval_string_to_string("(list 1)") == "(list 1)");  // no (1) sugar
   assert(eval_string_to_string("(LIST 1)") == "(list 1)");
   assert(eval_string_to_string("(list 1 2)") == "(list 1 2)");
@@ -455,6 +478,10 @@ void run_tests() {
   assert(eval_string_to_string("(quote (+ 1 2))") == "(+ 1 2)");
   assert(eval_string_to_string("(car (list 1 2))") == "1");
   assert(eval_string_to_string("(car (list (list 1 2) 3 4))") == "(list 1 2)");
+  assert(eval_string_to_string("(cdr ())") == "()");
+  assert(eval_string_to_string("(cdr (list 1))") == "()");
+  assert(eval_string_to_string("(cdr (list 1 2))") == "(list 2)");
+  assert(eval_string_to_string("(cdr (list (list 1 2) 3 4))") == "(list 3 4)");
   assert(eval_string_to_string("(+)") == "0");
   assert(eval_string_to_string("(+ 1 2 3 4)") == "10");
   assert(eval_string_to_string("(+ 1 (+ 2))") == "3");
