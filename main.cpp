@@ -443,9 +443,8 @@ SyntaxTree null(SyntaxTree tree) {
   assert(tree.data == "null");
   assert(tree.children.size() == 1);
   print::prn("calling null");
-  if (tree.children[0].token ==
-      Token::nil) {  // FIXME(yrom1): how do i do if it
-                     // evals to null without infinite loop
+  if (tree.children[0].token == Token::nil ||
+      eval(tree.children[0]).token == Token::nil) {
     print::prn("found nil, returning t");
     return {Token::t, "t", {}};
   } else {
@@ -454,7 +453,13 @@ SyntaxTree null(SyntaxTree tree) {
   }
 }
 
-SyntaxTree _not(SyntaxTree tree) { return null(tree); }
+SyntaxTree _not(SyntaxTree tree) {
+  assert(tree.token == Token::function);
+  assert(tree.data == "not");
+  tree.data = "null";  // REFACTOR(yrom1): this is only for the assert, should I
+                       // do this?
+  return null(tree);
+}
 
 SyntaxTree cond(SyntaxTree tree) {
   //            cond
@@ -567,6 +572,7 @@ std::string tree_to_string(SyntaxTree tree) {
       tree.token == Token::t) {
     return output += tree.data;
   } else {
+    print::prn(tree.token, tree.data, tree.children.size());
     assert(tree.token == Token::function);  // it shouldn't be anything else
     output += "(";
     output += tree.data;
