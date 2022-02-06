@@ -74,6 +74,9 @@ auto parse_elem(std::string elem) {
   // TODO(yrom1): why doesn't this regex work?
   // if (std::regex_search(elem, std::regex("\\w"))) return Token::function;
   // REFACTOR(yrom1): code repetition, this isnt a regex,e tc...
+  if (std::regex_search(elem, std::regex("null"))) return Token::function;
+  if (std::regex_search(elem, std::regex("not"))) return Token::function;
+  if (std::regex_search(elem, std::regex("cond"))) return Token::function;
   if (std::regex_search(elem, std::regex("atom"))) return Token::function;
   if (std::regex_search(elem, std::regex("cons"))) return Token::function;
   if (std::regex_search(elem, std::regex("eq"))) return Token::function;
@@ -435,7 +438,55 @@ SyntaxTree atom(SyntaxTree tree) {
   }
 }
 
+SyntaxTree null(SyntaxTree tree) {
+  if (eval(tree).token == Token::nil) {
+    return {Token::t, "t", {}};
+  } else {
+    return {Token::nil, "()", {}};
+  }
+}
+
+SyntaxTree _not(SyntaxTree tree) {
+  return null(tree);
+}
+
+SyntaxTree cond(SyntaxTree tree) {
+  //            cond
+  //              |
+  // optional[(L_0) ... (L_n)]
+  //
+  //    ___________ L _________
+  //   /        ... | ...       \
+  // arg0    optional[arg...]  argn
+  //
+  // where `n` is the `len(L)`
+  //
+  // --- cond ---
+  // if no children -> `nil`
+  // otherwise eval each `L` and return the first non-nil result
+  // if all eval to `nil` -> `nil`
+  //
+  // --- L ---
+  // `arg0` is a function or `t` or `nil`
+  // `optional[arg...]` are arguments to `arg0` if it is a function
+  //     you are allowed to pass arguments that are unused
+  // `argn` is the result if `(not (null (eval(arg0)))) -> t`
+  assert(tree.token == Token::function);
+  assert(tree.data == "cond");
+  if (tree.children.size() == 0) {
+    return {Token::nil, "()", {}};
+  } else {
+      // for every sublist
+      //     if (eval (L[0] optional[L[::-2]]) == Token::t -> L[-1]
+      // -> nil
+  }
+  return tree;
+}
+
 SyntaxTree dispatch(SyntaxTree tree) {
+  if (tree.data == "null") return null(tree);
+  if (tree.data == "not") return _not(tree);
+  if (tree.data == "cond") return cond(tree);
   if (tree.data == "atom") return atom(tree);
   if (tree.data == "cons") return cons(tree);
   if (tree.data == "eq") return eq(tree);
@@ -526,7 +577,9 @@ void run_tests() {
   // assert(eval_string_to_string("") == "");
   assert(eval_string_to_string("1") == "1");
   assert(eval_string_to_string("42") == "42");
+
   assert(eval_string_to_string("()") == "()");                 // no NIL sugar
+
   assert(eval_string_to_string("(list 1)") == "(list 1 ())");  // no (1) sugar
   assert(eval_string_to_string("(LIST 1)") ==
          "(list 1 ())");  // everything lowercase
@@ -534,6 +587,7 @@ void run_tests() {
   assert(eval_string_to_string("(list (list 1 2))") ==
          "(list (list 1 2 ()) ())");
   assert(eval_string_to_string("(list 1 (+ 2 3))") == "(list 1 5 ())");
+
   assert(eval_string_to_string("(cons 1 ())") == "(cons 1 ())");
   assert(eval_string_to_string("(cons 1 2)") == "(cons 1 2)");
   assert(eval_string_to_string("(cons () ())") == "(cons () ())");
@@ -547,14 +601,17 @@ void run_tests() {
   assert(eval_string_to_string("(quote 1)") == "1");
   assert(eval_string_to_string("(quote (list 1 2))") == "(list 1 2)");
   assert(eval_string_to_string("(quote (+ 1 2))") == "(+ 1 2)");
+
   assert(eval_string_to_string("(car (list 1 2))") == "1");
   assert(eval_string_to_string("(car (list (list 1 2) 3 4))") ==
          "(list 1 2 ())");
+
   assert(eval_string_to_string("(cdr ())") == "()");
   assert(eval_string_to_string("(cdr (list 1))") == "()");
   assert(eval_string_to_string("(cdr (list 1 2))") == "(list 2 ())");
   assert(eval_string_to_string("(cdr (list (list 1 2) 3 4))") ==
          "(list 3 4 ())");
+
   assert(eval_string_to_string("(eq 1 1)") == "t");
   assert(eval_string_to_string("(eq 1 2)") == "()");
   assert(eval_string_to_string("(eq (list 1 2) (list 1 2))") == "t");
@@ -562,15 +619,43 @@ void run_tests() {
          "t");
   assert(eval_string_to_string("(eq (list 1 (+ 2 3)) (list 1 (+ 2 4)))") ==
          "()");
+
+  assert(eval_string_to_string("(null 1)") == "()");
+  assert(eval_string_to_string("(null ())") == "t");
+  assert(eval_string_to_string("(null (cond))") == "t");
+
+  // TODO(yrom1): code repetition with null and not tests
+  assert(eval_string_to_string("(not 1)") == "()");
+  assert(eval_string_to_string("(not ())") == "t");
+  assert(eval_string_to_string("(not (cond))") == "t");
+
+  assert(eval_string_to_string("(cond)") == "()");
+  assert(eval_string_to_string("(cond (t))") == "t");
+  assert(eval_string_to_string("(cond (1))") == "1");
+  assert(eval_string_to_string("(cond (()))") == "()");
+  assert(eval_string_to_string("(cond (t 1))") == "1");
+  assert(eval_string_to_string("(cond (t 1))") == "1");
+  assert(eval_string_to_string("(cond (t 1 2 3 42))") == "42");
+  assert(eval_string_to_string("(cond (1 1))") == "1");
+  assert(eval_string_to_string("(cond (nil 42) (t 1))") ==  "1");
+  assert(eval_string_to_string("(cond (t 1) (nil 42))") ==  "1");
+  assert(eval_string_to_string("(cond (nil 1))") == "()");
+  assert(eval_string_to_string("(cond (nil 1) (nil 2))") == "()");
+  assert(eval_string_to_string("(cond ((eq 1 2) 3) (t 4))") == "4");
+  assert(eval_string_to_string("(cond ((eq 1 2) 3) (nil 4) (t 5))") == "5");
+
   assert(eval_string_to_string("(+)") == "0");
   assert(eval_string_to_string("(+ 1 2 3 4)") == "10");
   assert(eval_string_to_string("(+ 1 (+ 2))") == "3");
   assert(eval_string_to_string("(+ (+ 1 2) (+ 3 4))") == "10");
   assert(eval_string_to_string("(+ (+ (+ (+ 2))))") == "2");
+
   assert(eval_string_to_string("(- 1)") == "-1");
   assert(eval_string_to_string("(- 4 2)") == "2");
   assert(eval_string_to_string("(- (- 1))") == "1");
+
   assert(eval_string_to_string("(+ 1 (- 4 2))") == "3");
+
   assert(eval_string_to_string("(+ 9999999 1)") == "10000000");
   // assert(eval_string_to_string("(+ 99999999999999999999 1)") ==
   // "100000000000000000000"); // dumps on stoi assert(eval_string_to_string("(+
