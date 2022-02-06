@@ -439,27 +439,34 @@ SyntaxTree atom(SyntaxTree tree) {
 }
 
 SyntaxTree null(SyntaxTree tree) {
-  if (eval(tree).token == Token::nil) {
+  assert(tree.token == Token::function);
+  assert(tree.data == "null");
+  assert(tree.children.size() == 1);
+  print::prn("calling null");
+  if (tree.children[0].token ==
+      Token::nil) {  // FIXME(yrom1): how do i do if it
+                     // evals to null without infinite loop
+    print::prn("found nil, returning t");
     return {Token::t, "t", {}};
   } else {
+    print::prn("returning nil");
     return {Token::nil, "()", {}};
   }
 }
 
-SyntaxTree _not(SyntaxTree tree) {
-  return null(tree);
-}
+SyntaxTree _not(SyntaxTree tree) { return null(tree); }
 
 SyntaxTree cond(SyntaxTree tree) {
   //            cond
   //              |
   // optional[(L_0) ... (L_n)]
   //
-  //    ___________ L _________
-  //   /        ... | ...       \
-  // arg0    optional[arg...]  argn
+  //   ____________ L ___________
+  //   |        ... | ...       |
+  // arg0    optional[arg...]  optional[argn]
   //
   // where `n` is the `len(L)`
+  // `optional[argn]` only if (`arg0` != Token::function), else `argn`
   //
   // --- cond ---
   // if no children -> `nil`
@@ -471,16 +478,33 @@ SyntaxTree cond(SyntaxTree tree) {
   // `optional[arg...]` are arguments to `arg0` if it is a function
   //     you are allowed to pass arguments that are unused
   // `argn` is the result if `(not (null (eval(arg0)))) -> t`
+  // it is optional[argn] as
   assert(tree.token == Token::function);
   assert(tree.data == "cond");
   if (tree.children.size() == 0) {
     return {Token::nil, "()", {}};
   } else {
-      // for every sublist
-      //     if (eval (L[0] optional[L[::-2]]) == Token::t -> L[-1]
-      // -> nil
+    for (auto child : tree.children) {
+      assert(child.children[0].token == Token::function ||
+             child.children[0].token == Token::nil ||
+             child.children[0].token == Token::t);
+      if (child.children[0].token == Token::t) {
+        return child.children.back();
+      } else if (child.children[0].token == Token::nil) {
+        continue;
+      } else {
+        assert(child.children[0].token == Token::function);
+        SyntaxTree sublist = {child.children[0].token,
+                              child.children[0].data,
+                              {std::vector(child.children.begin() + 1,
+                                           child.children.end() - 1)}};
+        if (_not(null(eval(sublist))).token == Token::t) {
+          return child.children.back();
+        }
+      }
+    }
   }
-  return tree;
+  return {Token::nil, "()", {}};
 }
 
 SyntaxTree dispatch(SyntaxTree tree) {
@@ -525,8 +549,8 @@ SyntaxTree read() {
 // TODO(yrom1): code repetition in eval and tree_to_string
 
 SyntaxTree eval(SyntaxTree tree) {
-  // TODO(yrom1): should this include Token::t ?
-  if (tree.token == Token::nil || tree.token == Token::terminal) {
+  if (tree.token == Token::nil || tree.token == Token::terminal ||
+      tree.token == Token::t) {
     return tree;
   } else if (tree.token == Token::function) {
     return dispatch(tree);
@@ -578,7 +602,7 @@ void run_tests() {
   assert(eval_string_to_string("1") == "1");
   assert(eval_string_to_string("42") == "42");
 
-  assert(eval_string_to_string("()") == "()");                 // no NIL sugar
+  assert(eval_string_to_string("()") == "()");  // no NIL sugar
 
   assert(eval_string_to_string("(list 1)") == "(list 1 ())");  // no (1) sugar
   assert(eval_string_to_string("(LIST 1)") ==
@@ -637,8 +661,8 @@ void run_tests() {
   assert(eval_string_to_string("(cond (t 1))") == "1");
   assert(eval_string_to_string("(cond (t 1 2 3 42))") == "42");
   assert(eval_string_to_string("(cond (1 1))") == "1");
-  assert(eval_string_to_string("(cond (nil 42) (t 1))") ==  "1");
-  assert(eval_string_to_string("(cond (t 1) (nil 42))") ==  "1");
+  assert(eval_string_to_string("(cond (nil 42) (t 1))") == "1");
+  assert(eval_string_to_string("(cond (t 1) (nil 42))") == "1");
   assert(eval_string_to_string("(cond (nil 1))") == "()");
   assert(eval_string_to_string("(cond (nil 1) (nil 2))") == "()");
   assert(eval_string_to_string("(cond ((eq 1 2) 3) (t 4))") == "4");
