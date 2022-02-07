@@ -127,34 +127,30 @@ auto make_tree(std::vector<std::pair<Token::Token, std::string>> input) -> std::
   SyntaxTree tree;
   while (input.size() != 0) {
     auto pair_token_data = return_pop_back(input);
-
     if (pair_token_data.first == Token::terminal
      || pair_token_data.first == Token::t
      || pair_token_data.first == Token::nil) {
       tree.token = pair_token_data.first;
       tree.data = pair_token_data.second;
-      break;
-    }
+    } else {
+      assert(pair_token_data.first == Token::lbracket);
+      pair_token_data = return_pop_back(input);
 
-    assert(pair_token_data.first == Token::lbracket);
-    pair_token_data = return_pop_back(input);
+      assert(pair_token_data.first == Token::function);
+      tree.token = pair_token_data.first;
+      tree.data = pair_token_data.second;
 
-    assert(pair_token_data.first == Token::function);
-    tree.token = pair_token_data.first;
-    tree.data = pair_token_data.second;
-
-    assert(input.size() != 0);
-    while (input.back().first != Token::rbracket) {
-      auto pair_tree_size = make_tree(input);
-      tree.children.push_back(pair_tree_size.first);
-      input.resize(pair_tree_size.second);
       assert(input.size() != 0);
+      while (input.back().first != Token::rbracket) {
+        auto pair_tree_size = make_tree(input);
+        tree.children.push_back(pair_tree_size.first);
+        input.resize(pair_tree_size.second);
+        assert(input.size() != 0);
+      }
+      assert(input.back().first == Token::rbracket);
+      input.pop_back();
     }
-
-    assert(input.back().first == Token::rbracket);
-    input.pop_back();
     break;
-
   }
   return std::make_pair(tree, input.size());
 }
