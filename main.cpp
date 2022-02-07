@@ -91,7 +91,7 @@ auto lbracket_rbracket_pair_to_nil(
     auto t2 = input->at(i + 1).first;
     print::prn(t1, t2);
     if (t1 == Token::lbracket && t2 == Token::rbracket) {
-      input->erase(input->begin() + i, input->begin() + i + 1);
+      input->erase(input->begin() + i, input->begin() + i + 2);
       input->insert(input->begin() + i, std::make_pair(Token::nil, "()"));
     }
   }
