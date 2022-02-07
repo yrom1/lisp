@@ -418,6 +418,25 @@ auto _not(SyntaxTree tree) -> SyntaxTree {
   return null(tree);
 }
 
+auto eval_cond_list(SyntaxTree tree) -> SyntaxTree {
+  if (tree.children.size() == 0) {
+    return {Token::nil, "()", {}};
+  }
+  if (tree.children[0].token == Token::t) {
+    return tree.children[tree.children.size() - 1];
+  }
+  if (tree.children.size() > 1) {
+    SyntaxTree sublist = {
+        tree.children[0].token,
+        tree.children[0].data,
+        {std::vector(tree.children.begin(), tree.children.end() - 1)}};
+    if (_not(null(eval(sublist))).token == Token::t) {
+      return tree.children.back();
+    }
+  }
+  return {Token::nil, "()", {}};
+}
+
 auto cond(SyntaxTree tree) -> SyntaxTree {
   //            cond
   //              |
@@ -444,29 +463,14 @@ auto cond(SyntaxTree tree) -> SyntaxTree {
   assert(tree.token == Token::function);
   assert(tree.data == "cond");
   print::prn("calling cond");
-  // if (tree.children.size() == 0) {
-  //   return {Token::nil, "()", {}};
-  // } else {
-  //   for (auto child : tree.children) {
-  //     assert(child.children[0].token == Token::function ||
-  //            child.children[0].token == Token::nil ||
-  //            child.children[0].token == Token::t);
-  //     if (child.children[0].token == Token::t) {
-  //       return child.children.back();
-  //     } else if (child.children[0].token == Token::nil) {
-  //       continue;
-  //     } else {
-  //       assert(child.children[0].token == Token::function);
-  //       SyntaxTree sublist = {child.children[0].token,
-  //                             child.children[0].data,
-  //                             {std::vector(child.children.begin() + 1,
-  //                                          child.children.end() - 1)}};
-  //       if (_not(null(eval(sublist))).token == Token::t) {
-  //         return child.children.back();
-  //       }
-  //     }
-  //   }
-  // }
+  if (tree.children.size() == 0) {
+    return {Token::nil, "()", {}};
+  } else {
+    assert(tree.children[0].data == "list");
+    for (auto list : tree.children[0].children) {
+      return eval_cond_list(list);
+    }
+  }
   return {Token::nil, "()", {}};
 }
 
@@ -621,7 +625,7 @@ auto run_tests() -> void {
   // assert(eval_string_to_string("(cond (list (list ())))") == "()");
   // assert(eval_string_to_string("(cond (list (list t 1)))") == "1");
   // TODO(yrom1): put below tests in desugar notation
-  assert(eval_string_to_string("(cond (list 1 2)") == "1");
+  assert(eval_string_to_string("(cond (list (list t 2)))") == "2");
   // assert(eval_string_to_string("(cond (t 1 2 3 42))") == "42");
   // assert(eval_string_to_string("(cond (1 1))") == "1");
   // assert(eval_string_to_string("(cond (() 42) (t 1))") == "1");
