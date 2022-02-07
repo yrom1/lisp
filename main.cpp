@@ -99,7 +99,8 @@ auto lbracket_rbracket_pair_to_nil(
 
 auto parse_elem(std::string elem) -> Token::Token {
   print::prn("calling parse elem");
-  if (std::regex_search(elem, std::regex(R"(\(\s*\))"))) return Token::nil;
+  if (std::regex_search(elem, std::regex(R"(\(\s*\))")))
+    return Token::nil;  // TODO(yrom1): remove useless
   if (elem == "(") return Token::lbracket;
   if (elem == ")") return Token::rbracket;
   if (elem == "t") return Token::t;
@@ -125,6 +126,7 @@ auto lex(std::string input)
     }
   }
   lbracket_rbracket_pair_to_nil(&lex_input);
+  print::prn(lex_input);
   return lex_input;
 }
 
@@ -136,8 +138,8 @@ auto return_pop_back(std::vector<T>* const input) {
 }
 
 auto parse(std::vector<std::pair<Token::Token, std::string>> input)
-    -> std::pair<SyntaxTree, std::size_t> {
-  print::prn("calling make tree");
+    -> std::pair<SyntaxTree, size_t> {
+  print::prn("calling parse");
   SyntaxTree tree;
   while (input.size() != 0) {
     auto pair_token_data = return_pop_back(&input);
@@ -147,24 +149,22 @@ auto parse(std::vector<std::pair<Token::Token, std::string>> input)
       tree.token = pair_token_data.first;
       tree.data = pair_token_data.second;
     } else {
-      assert(pair_token_data.first == Token::lbracket);
-      pair_token_data = return_pop_back(&input);
-
-      print::prn("pair_token_data", pair_token_data.first,
-                 pair_token_data.second);
-      assert(pair_token_data.first == Token::function);
+      pair_token_data = return_pop_back(&input);  // pops an lbracket
       tree.token = pair_token_data.first;
       tree.data = pair_token_data.second;
-
-      assert(input.size() != 0);
       while (input.back().first != Token::rbracket) {
         auto pair_tree_size = parse(input);
+        print::prn("pushing back", pair_tree_size.first.token,
+                   pair_tree_size.first.data);
         tree.children.push_back(pair_tree_size.first);
         input.resize(pair_tree_size.second);
-        assert(input.size() != 0);
+        if (input.size() == 0) {
+          break;
+        }
       }
-      assert(input.back().first == Token::rbracket);
-      input.pop_back();
+      if (input.size() != 0) {
+        input.pop_back();
+      }
     }
     break;
   }
@@ -327,9 +327,6 @@ auto car(SyntaxTree tree) -> SyntaxTree {
   assert(tree.data == "car");
   assert(tree.children.size() > 0);
   assert(tree.children[0].data == "list");
-  print::prn("tree.children[0].children.size()", tree.children.size(),
-             "tree.children[0].children.size()",
-             tree.children[0].children.size());
   return eval(tree.children[0].children[0]);
 }
 
@@ -424,7 +421,7 @@ auto _not(SyntaxTree tree) -> SyntaxTree {
 auto cond(SyntaxTree tree) -> SyntaxTree {
   //            cond
   //              |
-  // optional[list (list L_0) ... (list L_n)]
+  // optional[(list (list L_0) ... (list L_n))]
   //
   //   ____________ L ___________
   //   |        ... | ...       |
@@ -523,19 +520,22 @@ auto eval(SyntaxTree tree) -> SyntaxTree {
 
 auto tree_to_string(SyntaxTree tree) -> std::string {
   // TODO(yrom1): proper lists vs improper lists
+  print::prn("calling tree to string", tree.data);
+  for (auto i : tree.children) {
+    print::prn("----", i.token, i.data, i.children.size());
+  }
+  print::prn(tree.token, tree.data, "children size", tree.children.size());
   std::string output;
-  print::prn(tree.token, tree.data);
   if (tree.token == Token::terminal || tree.token == Token::nil ||
       tree.token == Token::t) {
     return output += tree.data;
   } else {
     print::prn(tree.token, tree.data, tree.children.size());
-    assert(tree.token == Token::function);  // it shouldn't be anything else
+    // assert(tree.token == Token::function);  // it shouldn't be anything else
     output += "(";
     output += tree.data;
-    // if (tree.children.size() != 0) {
-    //   output += " ";
-    // }
+    print::prn("output", output);
+    assert(tree.token != Token::t);
     for (const auto& i : tree.children) {
       output += " ";
       output += tree_to_string(i);
@@ -621,7 +621,7 @@ auto run_tests() -> void {
   // assert(eval_string_to_string("(cond (list (list ())))") == "()");
   // assert(eval_string_to_string("(cond (list (list t 1)))") == "1");
   // TODO(yrom1): put below tests in desugar notation
-  // assert(eval_string_to_string("(cond (t 1))") == "1");
+  assert(eval_string_to_string("(cond (list 1 2)") == "1");
   // assert(eval_string_to_string("(cond (t 1 2 3 42))") == "42");
   // assert(eval_string_to_string("(cond (1 1))") == "1");
   // assert(eval_string_to_string("(cond (() 42) (t 1))") == "1");
