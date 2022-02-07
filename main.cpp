@@ -60,31 +60,18 @@ struct SyntaxTree {
 };
 
 auto add_spaces_around_brackets(std::string input) -> std::string {
-  print::prn("calling add spaces");
-  std::string clean_input;
-  for (size_t i = 0; i < input.size(); ++i) {
-    std::string space(" ");
-    std::string elem_str(1, input[i]);
-    print::prn(elem_str);
-    if (i < input.size() - 2 && input[i] == '(' && input[i + 1] == ')') {
-      // print::prn("--1", elem_str);
-      clean_input += elem_str;
-    } else if (input[i] == '(') {
-      // print::prn("--2", elem_str);
-      clean_input += elem_str;
-    } else if (input[i] == ')') {  // && (input[i] == '(' || input[i] == ')')
-      // print::prn("--3", elem_str);
-      clean_input += elem_str + space;
-    } else if (i != input.size() - 1 && (input[i] == '(' || input[i] == ')')) {
-      print::prn("--4", elem_str);
-      clean_input += elem_str + space;
+  std::string output;
+  std::string space(" ");
+  for (auto c : input) {
+    std::string elem(1, c);
+    if (c == '(' || c == ')') {
+      output += space + elem + space;
     } else {
-      print::prn("--5", elem_str);
-      clean_input += elem_str;
+      output += elem;
     }
   }
-  print::prn(input, "->", clean_input);
-  return clean_input;
+  print::prn(input, "->", output);
+  return output;
 }
 
 auto rsplit(std::string s, std::string rgx) -> std::vector<std::string> {
@@ -95,6 +82,19 @@ auto rsplit(std::string s, std::string rgx) -> std::vector<std::string> {
                [](auto i) { return i != ""; });
   print::prn("after: ", output);
   return output;
+}
+
+auto lbracket_rbracket_pair_to_nil(
+    std::vector<std::pair<Token::Token, std::string>>* const input) {
+  for (size_t i = 0; i < input->size() - 1; ++i) {
+    auto t1 = input->at(i).first;
+    auto t2 = input->at(i + 1).first;
+    print::prn(t1, t2);
+    if (t1 == Token::lbracket && t2 == Token::rbracket) {
+      input->erase(input->begin() + i, input->begin() + i + 1);
+      input->insert(input->begin() + i, std::make_pair(Token::nil, "()"));
+    }
+  }
 }
 
 auto parse_elem(std::string elem) -> Token::Token {
@@ -124,6 +124,7 @@ auto lex(std::string input)
           std::make_pair(parse_elem(std::string(token)), token));
     }
   }
+  lbracket_rbracket_pair_to_nil(&lex_input);
   return lex_input;
 }
 
