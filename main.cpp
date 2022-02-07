@@ -41,18 +41,12 @@ struct Data {
 namespace Token {
 // needs to be printable ie convertable
 enum Token {
-  /*
-  '('     : lbracket
-  ')'     : rbracket
-  '[0-9]' : terminal
-  */
+  nil,
   lbracket,
   rbracket,
+  t,
   function,
   terminal,
-  t,
-  nil,
-  nomatch,
   error,
 };
 }  // namespace Token
@@ -65,152 +59,114 @@ struct SyntaxTree {
   std::vector<SyntaxTree> children;
 };
 
-auto parse_elem(std::string elem) {
-  print::prn("parse:", elem);
-  // LISPS
-  if (elem == "(") return Token::lbracket;
-  if (elem == ")") return Token::rbracket;
-  // FUNCTIONS
-  // TODO(yrom1): why doesn't this regex work?
-  // if (std::regex_search(elem, std::regex("\\w"))) return Token::function;
-  // REFACTOR(yrom1): code repetition, this isnt a regex,e tc...
-  if (std::regex_search(elem, std::regex("null"))) return Token::function;
-  if (std::regex_search(elem, std::regex("not"))) return Token::function;
-  if (std::regex_search(elem, std::regex("cond"))) return Token::function;
-  if (std::regex_search(elem, std::regex("atom"))) return Token::function;
-  if (std::regex_search(elem, std::regex("cons"))) return Token::function;
-  if (std::regex_search(elem, std::regex("eq"))) return Token::function;
-  if (std::regex_search(elem, std::regex("car"))) return Token::function;
-  if (std::regex_search(elem, std::regex("cdr"))) return Token::function;
-  if (std::regex_search(elem, std::regex("list"))) return Token::function;
-  if (std::regex_search(elem, std::regex("quote"))) return Token::function;
-  if (std::regex_search(elem, std::regex("^[\\+|-]$"))) return Token::function;
-  // TERMINALS
-  if (std::regex_search(elem, std::regex("[0-9]*"))) return Token::terminal;
-  return Token::nomatch;
-}
-
-auto add_spaces_around_brackets(std::string input) {
-  std::string clean_input;
-  print::prn(input, "->", clean_input);
-  for (auto elem : input) {
-    if (elem == '(' || elem == ')') {
-      // FIXME if in the future I implement strings this needs fixing
-      // TODO(yrom1) Please tell me I can do this in one line
-      std::string elem_str(1, elem);
-      std::string space(" ");
-      clean_input += space + elem_str + space;
+auto add_spaces_around_brackets(std::string input) -> std::string {
+  std::string output;
+  std::string space(" ");
+  for (auto c : input) {
+    std::string elem(1, c);
+    if (c == '(' || c == ')') {
+      output += space + elem + space;
     } else {
-      clean_input += elem;
+      output += elem;
     }
   }
-  print::prn(input, "->", clean_input);
-  return clean_input;
+  print::prn(input, "->", output);
+  return output;
 }
 
-auto rsplit(std::string s, std::string rgx) {
+auto rsplit(std::string s, std::string rgx) -> std::vector<std::string> {
   std::vector<std::string> output;
   std::regex re{rgx};
-  std::copy(std::sregex_token_iterator{s.begin(), s.end(), re, -1},
-            std::sregex_token_iterator{}, std::back_inserter(output));
-  print::prn("before: ", s);
+  std::copy_if(std::sregex_token_iterator{s.begin(), s.end(), re, -1},
+               std::sregex_token_iterator{}, std::back_inserter(output),
+               [](auto i) { return i != ""; });
   print::prn("after: ", output);
   return output;
 }
 
-auto lex(std::string input) {
-  // (+ 1) valid input
-  // (+1) not valid input
+auto lbracket_rbracket_pair_to_nil(
+    std::vector<std::pair<Token::Token, std::string>>* const input) {
+  for (size_t i = 0; i < input->size() - 1; ++i) {
+    auto t1 = input->at(i).first;
+    auto t2 = input->at(i + 1).first;
+    print::prn(t1, t2);
+    if (t1 == Token::lbracket && t2 == Token::rbracket) {
+      input->erase(input->begin() + i, input->begin() + i + 2);
+      input->insert(input->begin() + i, std::make_pair(Token::nil, "()"));
+    }
+  }
+}
+
+auto parse_elem(std::string elem) -> Token::Token {
+  print::prn("calling parse elem");
+  if (std::regex_search(elem, std::regex(R"(\(\s*\))"))) return Token::nil;
+  if (elem == "(") return Token::lbracket;
+  if (elem == ")") return Token::rbracket;
+  if (elem == "t") return Token::t;
+  if (std::regex_search(elem, std::regex("[A-Za-z_]+|-|\\+")))
+    return Token::function;
+  if (std::regex_search(elem, std::regex("[0-9]+"))) return Token::terminal;
+  throw std::logic_error("ERROR: Can't parse element to token!");
+}
+
+auto lex(std::string input)
+    -> std::vector<std::pair<Token::Token, std::string>> {
+  print::prn("calling lex");
   auto clean_input = add_spaces_around_brackets(input);
   auto split_clean_input = rsplit(clean_input, R"(\s+)");
   std::vector<std::pair<Token::Token, std::string>> lex_input;
   for (auto token : split_clean_input) {
-    print::prn("token", token);
     for (auto& c : token) {
       c = ::tolower(c);
     }
-    print::prn("lower token", token);
     if (token.size() > 0) {
       lex_input.push_back(
           std::make_pair(parse_elem(std::string(token)), token));
     }
   }
+  lbracket_rbracket_pair_to_nil(&lex_input);
   return lex_input;
 }
 
-/*
-number   : /-?[0-9]+/
-operator : '+' | '-' | '*' | '/'
-expr     : <number> | '(' <operator> <expr>+ ')'
-lispy    : /^/ <expr>+ /$/
-*/
+template <typename T>
+auto return_pop_back(std::vector<T>* const input) {
+  auto back = input->back();
+  input->pop_back();
+  return back;
+}
 
-//  std::vector<Token::Token>>::size
-std::pair<SyntaxTree, std::size_t> make_tree(
-    std::vector<std::pair<Token::Token, std::string>> input) {
+auto parse(std::vector<std::pair<Token::Token, std::string>> input)
+    -> std::pair<SyntaxTree, std::size_t> {
+  print::prn("calling make tree");
   SyntaxTree tree;
   while (input.size() != 0) {
-    print::prn("input.size", input.size(), input.back().second);
-    auto pair_token_data = input.back();
-    input.pop_back();
-
-    // 1 -> 1
-    if (pair_token_data.first == Token::terminal) {
-      print::prn("terminal");
+    auto pair_token_data = return_pop_back(&input);
+    if (pair_token_data.first == Token::terminal ||
+        pair_token_data.first == Token::t ||
+        pair_token_data.first == Token::nil) {
       tree.token = pair_token_data.first;
       tree.data = pair_token_data.second;
-      break;
-    }
+    } else {
+      assert(pair_token_data.first == Token::lbracket);
+      pair_token_data = return_pop_back(&input);
 
-    // An S-expr MUST start with a lbracket!
-    if (pair_token_data.first != Token::lbracket) {
-      print::prn(input.size(), "ERROR: Unbalanced lbracket!",
-                 "next: ", input.back().first, input.back().second,
-                 "size: ", input.size());
-      break;
-    }
+      print::prn("pair_token_data", pair_token_data.first,
+                 pair_token_data.second);
+      assert(pair_token_data.first == Token::function);
+      tree.token = pair_token_data.first;
+      tree.data = pair_token_data.second;
 
-    // We're in an S-expr, can be either F, rbracket
-    print::prn("input.size", input.size());
-    auto sexpr_pair_token_data = input.back();
-    input.pop_back();
-
-    // Empty () pair -> NIL
-    if (sexpr_pair_token_data.first == Token::rbracket) {
-      tree.token = Token::nil;
-      tree.data = "()";
-      break;
-    }
-
-    if (sexpr_pair_token_data.first == Token::function) {
-      print::prn("function");
-      tree.token = sexpr_pair_token_data.first;
-      tree.data = sexpr_pair_token_data.second;
-
+      assert(input.size() != 0);
       while (input.back().first != Token::rbracket) {
-        print::prn("child");
-        // we cant hit a function, doesn't make sense, only T, '(', or ')'
-        if (input.back().first == Token::terminal) {
-          SyntaxTree terminal = {input.back().first,
-                                 std::string{input.back().second},
-                                 std::vector<SyntaxTree>{}};
-          tree.children.push_back(terminal);
-          input.pop_back();
-        } else if (input.back().first == Token::lbracket) {
-          auto child_pair_tree_size = make_tree(input);
-          tree.children.push_back(child_pair_tree_size.first);
-          while (input.size() != child_pair_tree_size.second) {
-            input.pop_back();
-          }
-        }
+        auto pair_tree_size = parse(input);
+        tree.children.push_back(pair_tree_size.first);
+        input.resize(pair_tree_size.second);
+        assert(input.size() != 0);
       }
-
-      print::prn("MUST BE ')': ", input.back().second);
-      assert(input.back().second == ")");
+      assert(input.back().first == Token::rbracket);
       input.pop_back();
-      break;
     }
-    print::prn("ending loop");
+    break;
   }
   return std::make_pair(tree, input.size());
 }
@@ -228,7 +184,7 @@ namespace Converter {
 
 namespace __detail {
 
-Type::Type parse_underlying_type(SyntaxTree tree) {
+auto parse_underlying_type(SyntaxTree tree) -> Type::Type {
   // FIXME(yrom1): this is kinda code repetition from parsing
   //               but it's only for terminals
   if (std::regex_search(tree.data, std::regex("[0-9]*"))) return Type::number;
@@ -264,14 +220,14 @@ auto terminal_to_underlying(SyntaxTree tree) {
 }
 
 template <typename T>
-SyntaxTree underlying_to_terminal(T input) {
+auto underlying_to_terminal(T input) -> SyntaxTree {
   return {Token::terminal, __detail::underlying_to_string(input), {}};
 }
 
 }  // namespace Converter
 
 template <typename T>
-SyntaxTree tree_reduce(SyntaxTree tree, T binary_operator) {
+auto tree_reduce(SyntaxTree tree, T binary_operator) -> SyntaxTree {
   SyntaxTree output = Converter::underlying_to_terminal(binary_operator(
       Converter::terminal_to_underlying(eval(tree.children[0])),
       Converter::terminal_to_underlying(eval(tree.children[1]))));
@@ -289,7 +245,7 @@ SyntaxTree tree_reduce(SyntaxTree tree, T binary_operator) {
 }
 
 template <typename T, typename U>
-SyntaxTree arity_dispatch(SyntaxTree tree, T uniary_op, U binary_op) {
+auto arity_dispatch(SyntaxTree tree, T uniary_op, U binary_op) -> SyntaxTree {
   // TODO(yrom1): this could be more elegant somehow
   //              (-) doesn't have a no-arity dispatch... so...
   if (tree.children.size() == 0 || tree.children.size() == 1) {
@@ -299,7 +255,7 @@ SyntaxTree arity_dispatch(SyntaxTree tree, T uniary_op, U binary_op) {
   }
 }
 
-SyntaxTree add_unary(SyntaxTree tree) {
+auto add_unary(SyntaxTree tree) -> SyntaxTree {
   if (tree.children.size() == 0) {
     return {Token::terminal, "0", {}};
   } else {
@@ -307,15 +263,15 @@ SyntaxTree add_unary(SyntaxTree tree) {
   }
 }
 
-SyntaxTree add_binary(SyntaxTree tree) {
+auto add_binary(SyntaxTree tree) -> SyntaxTree {
   return tree_reduce(tree, std::plus<>());
 }
 
-SyntaxTree add(SyntaxTree tree) {
+auto add(SyntaxTree tree) -> SyntaxTree {
   return arity_dispatch(tree, add_unary, add_binary);
 }
 
-SyntaxTree minus_unary(SyntaxTree tree) {
+auto minus_unary(SyntaxTree tree) -> SyntaxTree {
   if (tree.children.size() == 0) {
     return {Token::error, "ERROR: Unary minus needs one child!", {}};
   } else {
@@ -324,15 +280,19 @@ SyntaxTree minus_unary(SyntaxTree tree) {
   }
 }
 
-SyntaxTree minus_binary(SyntaxTree tree) {
+auto minus_binary(SyntaxTree tree) -> SyntaxTree {
   return tree_reduce(tree, std::minus<>());
 }
 
-SyntaxTree minus(SyntaxTree tree) {
+auto minus(SyntaxTree tree) -> SyntaxTree {
   return arity_dispatch(tree, minus_unary, minus_binary);
 }
 
-SyntaxTree list(SyntaxTree tree) {
+auto list(SyntaxTree tree) -> SyntaxTree {
+  print::prn("calling list");
+  if (tree.children.size() == 0) {
+    return {Token::nil, "()", {}};
+  }
   print::pr("for_each start:");
   auto __print = [](SyntaxTree x) { std::cout << " " << x.data << ", "; };
   std::for_each(tree.children.begin(), tree.children.end(), __print);
@@ -350,7 +310,7 @@ SyntaxTree list(SyntaxTree tree) {
   return tree;
 }
 
-SyntaxTree quote(SyntaxTree tree) {
+auto quote(SyntaxTree tree) -> SyntaxTree {
   assert(tree.token == Token::function);
   assert(tree.data == "quote");
   assert(tree.children.size() != 0);
@@ -361,7 +321,7 @@ SyntaxTree quote(SyntaxTree tree) {
   return tree;
 }
 
-SyntaxTree car(SyntaxTree tree) {
+auto car(SyntaxTree tree) -> SyntaxTree {
   print::prn("calling car");
   assert(tree.token == Token::function);
   assert(tree.data == "car");
@@ -373,7 +333,7 @@ SyntaxTree car(SyntaxTree tree) {
   return eval(tree.children[0].children[0]);
 }
 
-SyntaxTree cdr(SyntaxTree tree) {
+auto cdr(SyntaxTree tree) -> SyntaxTree {
   print::prn("calling cdr");
   // assert(tree.token == Token::function);
   // assert(tree.data == "cdr");
@@ -394,7 +354,7 @@ SyntaxTree cdr(SyntaxTree tree) {
   }
 }
 
-SyntaxTree eq(SyntaxTree tree) {
+auto eq(SyntaxTree tree) -> SyntaxTree {
   assert(tree.token == Token::function);
   assert(tree.data == "eq");
   assert(tree.children.size() == 2);
@@ -412,14 +372,14 @@ SyntaxTree eq(SyntaxTree tree) {
   return tree;
 }
 
-SyntaxTree cons(SyntaxTree tree) {
+auto cons(SyntaxTree tree) -> SyntaxTree {
   assert(tree.token == Token::function);
   assert(tree.data == "cons");
   assert(tree.children.size() == 2);
   return tree;
 }
 
-SyntaxTree atom(SyntaxTree tree) {
+auto atom(SyntaxTree tree) -> SyntaxTree {
   // true if not a cons
   // in my implementation, true if not list, or not cons
   // nil is a list, but not a cons so (atom ()) -> t
@@ -438,7 +398,7 @@ SyntaxTree atom(SyntaxTree tree) {
   }
 }
 
-SyntaxTree null(SyntaxTree tree) {
+auto null(SyntaxTree tree) -> SyntaxTree {
   assert(tree.token == Token::function);
   assert(tree.data == "null");
   assert(tree.children.size() == 1);
@@ -453,7 +413,7 @@ SyntaxTree null(SyntaxTree tree) {
   }
 }
 
-SyntaxTree _not(SyntaxTree tree) {
+auto _not(SyntaxTree tree) -> SyntaxTree {
   assert(tree.token == Token::function);
   assert(tree.data == "not");
   tree.data = "null";  // REFACTOR(yrom1): this is only for the assert, should I
@@ -461,10 +421,10 @@ SyntaxTree _not(SyntaxTree tree) {
   return null(tree);
 }
 
-SyntaxTree cond(SyntaxTree tree) {
+auto cond(SyntaxTree tree) -> SyntaxTree {
   //            cond
   //              |
-  // optional[(L_0) ... (L_n)]
+  // optional[list (list L_0) ... (list L_n)]
   //
   //   ____________ L ___________
   //   |        ... | ...       |
@@ -486,33 +446,34 @@ SyntaxTree cond(SyntaxTree tree) {
   // it is optional[argn] as
   assert(tree.token == Token::function);
   assert(tree.data == "cond");
-  if (tree.children.size() == 0) {
-    return {Token::nil, "()", {}};
-  } else {
-    for (auto child : tree.children) {
-      assert(child.children[0].token == Token::function ||
-             child.children[0].token == Token::nil ||
-             child.children[0].token == Token::t);
-      if (child.children[0].token == Token::t) {
-        return child.children.back();
-      } else if (child.children[0].token == Token::nil) {
-        continue;
-      } else {
-        assert(child.children[0].token == Token::function);
-        SyntaxTree sublist = {child.children[0].token,
-                              child.children[0].data,
-                              {std::vector(child.children.begin() + 1,
-                                           child.children.end() - 1)}};
-        if (_not(null(eval(sublist))).token == Token::t) {
-          return child.children.back();
-        }
-      }
-    }
-  }
+  print::prn("calling cond");
+  // if (tree.children.size() == 0) {
+  //   return {Token::nil, "()", {}};
+  // } else {
+  //   for (auto child : tree.children) {
+  //     assert(child.children[0].token == Token::function ||
+  //            child.children[0].token == Token::nil ||
+  //            child.children[0].token == Token::t);
+  //     if (child.children[0].token == Token::t) {
+  //       return child.children.back();
+  //     } else if (child.children[0].token == Token::nil) {
+  //       continue;
+  //     } else {
+  //       assert(child.children[0].token == Token::function);
+  //       SyntaxTree sublist = {child.children[0].token,
+  //                             child.children[0].data,
+  //                             {std::vector(child.children.begin() + 1,
+  //                                          child.children.end() - 1)}};
+  //       if (_not(null(eval(sublist))).token == Token::t) {
+  //         return child.children.back();
+  //       }
+  //     }
+  //   }
+  // }
   return {Token::nil, "()", {}};
 }
 
-SyntaxTree dispatch(SyntaxTree tree) {
+auto dispatch(SyntaxTree tree) -> SyntaxTree {
   if (tree.data == "null") return null(tree);
   if (tree.data == "not") return _not(tree);
   if (tree.data == "cond") return cond(tree);
@@ -528,23 +489,19 @@ SyntaxTree dispatch(SyntaxTree tree) {
   return {Token::error, "ERROR: Can't match data in function dispatch!", {}};
 }
 
-SyntaxTree string_to_tree(std::string input) {
-  // -- Lex --
+auto string_to_tree(std::string input) -> SyntaxTree {
   auto lex_input = lex(input);
   print::prn(lex_input);
   std::reverse(lex_input.begin(), lex_input.end());
   print::prn(lex_input);
 
-  // -- Parse --
-  auto tree_size_pair = make_tree(lex_input);
-  print_tree(tree_size_pair.first);
-  // if it's not an error happened, because we need to consume the entire
-  // lex'ed token vector into a tree
-  //  assert(tree_size_pair.second == 0);
-  return tree_size_pair.first;
+  auto pair_tree_size = parse(lex_input);
+  print_tree(pair_tree_size.first);
+  assert(pair_tree_size.second == 0);  // must consume the entire token vector
+  return pair_tree_size.first;
 }
 
-SyntaxTree read() {
+auto read() -> SyntaxTree {
   std::cout << std::string("lisp> ");
   std::string input;
   std::getline(std::cin, input);
@@ -553,7 +510,7 @@ SyntaxTree read() {
 
 // TODO(yrom1): code repetition in eval and tree_to_string
 
-SyntaxTree eval(SyntaxTree tree) {
+auto eval(SyntaxTree tree) -> SyntaxTree {
   if (tree.token == Token::nil || tree.token == Token::terminal ||
       tree.token == Token::t) {
     return tree;
@@ -564,7 +521,7 @@ SyntaxTree eval(SyntaxTree tree) {
   }
 }
 
-std::string tree_to_string(SyntaxTree tree) {
+auto tree_to_string(SyntaxTree tree) -> std::string {
   // TODO(yrom1): proper lists vs improper lists
   std::string output;
   print::prn(tree.token, tree.data);
@@ -590,26 +547,29 @@ std::string tree_to_string(SyntaxTree tree) {
   return output;
 }
 
-void _print(SyntaxTree tree) { std::cout << tree_to_string(tree) << std::endl; }
+auto _print(SyntaxTree tree) -> void {
+  std::cout << tree_to_string(tree) << std::endl;
+}
 
-void print_tree(SyntaxTree tree) {
+auto print_tree(SyntaxTree tree) -> void {
   // TODO(yrom1) remove where-ever this is called with just print
   _print(tree);
 }
-std::string eval_string_to_string(std::string input) {
+auto eval_string_to_string(std::string input) -> std::string {
   return tree_to_string(eval(string_to_tree(input)));
 }
 
 // TODO(yrom1): list, quote, atom, eq, car, cdr, cons, cond
 // see https://jtra.cz/stuff/lisp/sclr/index.html
 
-void run_tests() {
+auto run_tests() -> void {
   // assert(eval_string_to_string("") == "");
   assert(eval_string_to_string("1") == "1");
   assert(eval_string_to_string("42") == "42");
 
   assert(eval_string_to_string("()") == "()");  // no NIL sugar
 
+  assert(eval_string_to_string("(list)") == "()");
   assert(eval_string_to_string("(list 1)") == "(list 1 ())");  // no (1) sugar
   assert(eval_string_to_string("(LIST 1)") ==
          "(list 1 ())");  // everything lowercase
@@ -650,6 +610,28 @@ void run_tests() {
   assert(eval_string_to_string("(eq (list 1 (+ 2 3)) (list 1 (+ 2 4)))") ==
          "()");
 
+  // (cond (t)) -> (cond (list (list t)))
+  // assert(eval_string_to_string("(cond)") == "()");
+  // (cond (list)) is not allowed
+  // assert(eval_string_to_string("(cond (list (list))") ==
+  //  "()");  // no implicit list sugar, always pass (list (list... even when
+  // unnecessary
+  // assert(eval_string_to_string("(cond (list (list t))") == "t");
+  // assert(eval_string_to_string("(cond (list (list 1))") == "1");
+  // assert(eval_string_to_string("(cond (list (list ())))") == "()");
+  // assert(eval_string_to_string("(cond (list (list t 1)))") == "1");
+  // TODO(yrom1): put below tests in desugar notation
+  // assert(eval_string_to_string("(cond (t 1))") == "1");
+  // assert(eval_string_to_string("(cond (t 1 2 3 42))") == "42");
+  // assert(eval_string_to_string("(cond (1 1))") == "1");
+  // assert(eval_string_to_string("(cond (() 42) (t 1))") == "1");
+  // assert(eval_string_to_string("(cond (t 1) (() 42))") == "1");
+  // assert(eval_string_to_string("(cond (() 1))") == "()");
+  // assert(eval_string_to_string("(cond (() 1) (() 2))") == "()");
+  // assert(eval_string_to_string("(cond ((eq 1 2) 3) (t 4))") == "4");
+  // assert(eval_string_to_string("(cond ((eq 1 2) 3) (() 4) (t 5))") ==
+  // "5");
+
   assert(eval_string_to_string("(null 1)") == "()");
   assert(eval_string_to_string("(null ())") == "t");
   assert(eval_string_to_string("(null (cond))") == "t");
@@ -658,21 +640,6 @@ void run_tests() {
   assert(eval_string_to_string("(not 1)") == "()");
   assert(eval_string_to_string("(not ())") == "t");
   assert(eval_string_to_string("(not (cond))") == "t");
-
-  assert(eval_string_to_string("(cond)") == "()");
-  assert(eval_string_to_string("(cond (t))") == "t");
-  assert(eval_string_to_string("(cond (1))") == "1");
-  assert(eval_string_to_string("(cond (()))") == "()");
-  assert(eval_string_to_string("(cond (t 1))") == "1");
-  assert(eval_string_to_string("(cond (t 1))") == "1");
-  assert(eval_string_to_string("(cond (t 1 2 3 42))") == "42");
-  assert(eval_string_to_string("(cond (1 1))") == "1");
-  assert(eval_string_to_string("(cond (nil 42) (t 1))") == "1");
-  assert(eval_string_to_string("(cond (t 1) (nil 42))") == "1");
-  assert(eval_string_to_string("(cond (nil 1))") == "()");
-  assert(eval_string_to_string("(cond (nil 1) (nil 2))") == "()");
-  assert(eval_string_to_string("(cond ((eq 1 2) 3) (t 4))") == "4");
-  assert(eval_string_to_string("(cond ((eq 1 2) 3) (nil 4) (t 5))") == "5");
 
   assert(eval_string_to_string("(+)") == "0");
   assert(eval_string_to_string("(+ 1 2 3 4)") == "10");
@@ -688,11 +655,12 @@ void run_tests() {
 
   assert(eval_string_to_string("(+ 9999999 1)") == "10000000");
   // assert(eval_string_to_string("(+ 99999999999999999999 1)") ==
-  // "100000000000000000000"); // dumps on stoi assert(eval_string_to_string("(+
-  // 1 ())") == "???"); // this core dumps, pass error?
+  // "100000000000000000000"); // dumps on stoi
+  // assert(eval_string_to_string("(+ 1 ())") == "???"); // this core
+  // dumps, pass error?
 }
 
-void repl() {
+auto repl() -> void {
   while (true) {
     _print(eval(read()));
   }
