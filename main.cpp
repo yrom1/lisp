@@ -413,9 +413,14 @@ auto null(SyntaxTree tree) -> SyntaxTree {
 auto _not(SyntaxTree tree) -> SyntaxTree {
   assert(tree.token == Token::function);
   assert(tree.data == "not");
-  tree.data = "null";  // REFACTOR(yrom1): this is only for the assert, should I
-                       // do this?
+  tree.data = "null";
   return null(tree);
+}
+
+auto notnull(SyntaxTree tree) {
+  SyntaxTree nulltree = null({Token::function, "null", {eval(tree)}});
+  SyntaxTree notnulltree = _not({Token::function, "not", {nulltree}});
+  return notnulltree;
 }
 
 auto eval_cond_list(SyntaxTree tree) -> SyntaxTree {
@@ -430,7 +435,7 @@ auto eval_cond_list(SyntaxTree tree) -> SyntaxTree {
         tree.children[0].token,
         tree.children[0].data,
         {std::vector(tree.children.begin(), tree.children.end() - 1)}};
-    if (_not(null(eval(sublist))).token == Token::t) {
+    if (notnull(sublist).token == Token::t) {
       return tree.children.back();
     }
   }
@@ -535,7 +540,8 @@ auto tree_to_string(SyntaxTree tree) -> std::string {
     return output += tree.data;
   } else {
     print::prn(tree.token, tree.data, tree.children.size());
-    // assert(tree.token == Token::function);  // it shouldn't be anything else
+    // assert(tree.token == Token::function);  // it shouldn't be anything
+    // else
     output += "(";
     output += tree.data;
     print::prn("output", output);
@@ -560,6 +566,8 @@ auto print_tree(SyntaxTree tree) -> void {
   _print(tree);
 }
 auto eval_string_to_string(std::string input) -> std::string {
+  print::prn("es2s INPUT ", input);
+  print::prn("es2s OUTPUT ", tree_to_string(eval(string_to_tree(input))));
   return tree_to_string(eval(string_to_tree(input)));
 }
 
@@ -614,27 +622,26 @@ auto run_tests() -> void {
   assert(eval_string_to_string("(eq (list 1 (+ 2 3)) (list 1 (+ 2 4)))") ==
          "()");
 
-  // (cond (t)) -> (cond (list (list t)))
-  // assert(eval_string_to_string("(cond)") == "()");
+  // sbcl (cond (t)) -> (cond (list (list t)))
+  assert(eval_string_to_string("(cond)") == "()");
   // (cond (list)) is not allowed
-  // assert(eval_string_to_string("(cond (list (list))") ==
-  //  "()");  // no implicit list sugar, always pass (list (list... even when
-  // unnecessary
-  // assert(eval_string_to_string("(cond (list (list t))") == "t");
-  // assert(eval_string_to_string("(cond (list (list 1))") == "1");
+  assert(eval_string_to_string("(cond (list (list)))") == "()");
+  // assert(eval_string_to_string("(cond (list (list t)))") == "t");
+  // assert(eval_string_to_string("(cond (list (list 1)))") == "1");
   // assert(eval_string_to_string("(cond (list (list ())))") == "()");
-  // assert(eval_string_to_string("(cond (list (list t 1)))") == "1");
-  // TODO(yrom1): put below tests in desugar notation
+  assert(eval_string_to_string("(cond (list (list t 1)))") == "1");
   assert(eval_string_to_string("(cond (list (list t 2)))") == "2");
-  // assert(eval_string_to_string("(cond (t 1 2 3 42))") == "42");
-  // assert(eval_string_to_string("(cond (1 1))") == "1");
-  // assert(eval_string_to_string("(cond (() 42) (t 1))") == "1");
-  // assert(eval_string_to_string("(cond (t 1) (() 42))") == "1");
-  // assert(eval_string_to_string("(cond (() 1))") == "()");
-  // assert(eval_string_to_string("(cond (() 1) (() 2))") == "()");
-  // assert(eval_string_to_string("(cond ((eq 1 2) 3) (t 4))") == "4");
-  // assert(eval_string_to_string("(cond ((eq 1 2) 3) (() 4) (t 5))") ==
-  // "5");
+  assert(eval_string_to_string("(cond (list (list t 1 2 3 42)))") == "42");
+  assert(eval_string_to_string("(cond (list (list 1 1)))") == "1");
+  // assert(eval_string_to_string("(cond (list (list () 42) (list t 1)))") ==
+  // "1"); assert(eval_string_to_string("(cond (list (list t 1) (list () 42)))")
+  // == "1"); assert(eval_string_to_string("(cond (list (list () 1)))") ==
+  // "()"); assert(eval_string_to_string("(cond (list (list () 1) (list ()
+  // 2)))") == "()");
+  // assert(eval_string_to_string("(cond (list (list eq 1 2 3) (list t 4)))") ==
+  //  "4");
+  // assert(eval_string_to_string(
+  //  "(cond (list (list eq 2 (+ 1 1) 3) (list t 4)))") == "3");
 
   assert(eval_string_to_string("(null 1)") == "()");
   assert(eval_string_to_string("(null ())") == "t");
