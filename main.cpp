@@ -122,7 +122,7 @@ auto return_pop_back(std::vector<T>& input) {
   return back;
 }
 
-auto make_tree(std::vector<std::pair<Token::Token, std::string>> input) -> std::pair<SyntaxTree, std::size_t>  {
+auto parse(std::vector<std::pair<Token::Token, std::string>> input) -> std::pair<SyntaxTree, std::size_t>  {
   print::prn("calling make tree");
   SyntaxTree tree;
   while (input.size() != 0) {
@@ -142,7 +142,7 @@ auto make_tree(std::vector<std::pair<Token::Token, std::string>> input) -> std::
 
       assert(input.size() != 0);
       while (input.back().first != Token::rbracket) {
-        auto pair_tree_size = make_tree(input);
+        auto pair_tree_size = parse(input);
         tree.children.push_back(pair_tree_size.first);
         input.resize(pair_tree_size.second);
         assert(input.size() != 0);
@@ -474,20 +474,14 @@ auto dispatch(SyntaxTree tree) -> SyntaxTree {
 }
 
 auto string_to_tree(std::string input) -> SyntaxTree {
-  // -- Lex --
   auto lex_input = lex(input);
   print::prn(lex_input);
   std::reverse(lex_input.begin(), lex_input.end());
   print::prn(lex_input);
 
-  // -- Parse --
-  print::prn("----0");
-  auto tree_size_pair = make_tree(lex_input);
-  print::prn("----1");
+  auto tree_size_pair = parse(lex_input);
   print_tree(tree_size_pair.first);
-  // if it's not an error happened, because we need to consume the entire
-  // lex'ed token vector into a tree
-  //  assert(tree_size_pair.second == 0);
+  assert(tree_size_pair.second == 0); // must consume the entire token vector
   return tree_size_pair.first;
 }
 
