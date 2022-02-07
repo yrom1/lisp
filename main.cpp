@@ -62,15 +62,25 @@ struct SyntaxTree {
 auto add_spaces_around_brackets(std::string input) -> std::string {
   print::prn("calling add spaces");
   std::string clean_input;
-  for (auto elem : input) {
-    if (elem == '(' || elem == ')') {
-      // FIXME if in the future I implement strings this needs fixing
-      // TODO(yrom1) Please tell me I can do this in one line
-      std::string elem_str(1, elem);
-      std::string space(" ");
-      clean_input += space + elem_str + space;
+  for (size_t i = 0; i < input.size(); ++i) {
+    std::string space(" ");
+    std::string elem_str(1, input[i]);
+    print::prn(elem_str);
+    if (i < input.size() - 2 && input[i] == '(' && input[i + 1] == ')') {
+      // print::prn("--1", elem_str);
+      clean_input += elem_str;
+    } else if (input[i] == '(') {
+      // print::prn("--2", elem_str);
+      clean_input += elem_str;
+    } else if (input[i] == ')') {  // && (input[i] == '(' || input[i] == ')')
+      // print::prn("--3", elem_str);
+      clean_input += elem_str + space;
+    } else if (i != input.size() - 1 && (input[i] == '(' || input[i] == ')')) {
+      print::prn("--4", elem_str);
+      clean_input += elem_str + space;
     } else {
-      clean_input += elem;
+      print::prn("--5", elem_str);
+      clean_input += elem_str;
     }
   }
   print::prn(input, "->", clean_input);
@@ -78,27 +88,29 @@ auto add_spaces_around_brackets(std::string input) -> std::string {
 }
 
 auto rsplit(std::string s, std::string rgx) -> std::vector<std::string> {
-  print::prn("calling rsplit");
   std::vector<std::string> output;
   std::regex re{rgx};
-  std::copy(std::sregex_token_iterator{s.begin(), s.end(), re, -1},
-            std::sregex_token_iterator{}, std::back_inserter(output));
+  std::copy_if(std::sregex_token_iterator{s.begin(), s.end(), re, -1},
+               std::sregex_token_iterator{}, std::back_inserter(output),
+               [](auto i) { return i != ""; });
   print::prn("after: ", output);
   return output;
 }
 
 auto parse_elem(std::string elem) -> Token::Token {
   print::prn("calling parse elem");
-  if (std::regex_search(elem, std::regex("\\(\\s*\\)"))) return Token::nil;
+  if (std::regex_search(elem, std::regex(R"(\(\s*\))"))) return Token::nil;
   if (elem == "(") return Token::lbracket;
   if (elem == ")") return Token::rbracket;
   if (elem == "t") return Token::t;
-  if (std::regex_search(elem, std::regex("[A-Za-z_]+|-|\\+"))) return Token::function;
+  if (std::regex_search(elem, std::regex("[A-Za-z_]+|-|\\+")))
+    return Token::function;
   if (std::regex_search(elem, std::regex("[0-9]+"))) return Token::terminal;
   throw std::logic_error("ERROR: Can't parse element to token!");
 }
 
-auto lex(std::string input) -> std::vector<std::pair<Token::Token, std::string>> {
+auto lex(std::string input)
+    -> std::vector<std::pair<Token::Token, std::string>> {
   print::prn("calling lex");
   auto clean_input = add_spaces_around_brackets(input);
   auto split_clean_input = rsplit(clean_input, R"(\s+)");
@@ -116,26 +128,29 @@ auto lex(std::string input) -> std::vector<std::pair<Token::Token, std::string>>
 }
 
 template <typename T>
-auto return_pop_back(std::vector<T>& input) {
-  auto back = input.back();
-  input.pop_back();
+auto return_pop_back(std::vector<T>* const input) {
+  auto back = input->back();
+  input->pop_back();
   return back;
 }
 
-auto parse(std::vector<std::pair<Token::Token, std::string>> input) -> std::pair<SyntaxTree, std::size_t>  {
+auto parse(std::vector<std::pair<Token::Token, std::string>> input)
+    -> std::pair<SyntaxTree, std::size_t> {
   print::prn("calling make tree");
   SyntaxTree tree;
   while (input.size() != 0) {
-    auto pair_token_data = return_pop_back(input);
-    if (pair_token_data.first == Token::terminal
-     || pair_token_data.first == Token::t
-     || pair_token_data.first == Token::nil) {
+    auto pair_token_data = return_pop_back(&input);
+    if (pair_token_data.first == Token::terminal ||
+        pair_token_data.first == Token::t ||
+        pair_token_data.first == Token::nil) {
       tree.token = pair_token_data.first;
       tree.data = pair_token_data.second;
     } else {
       assert(pair_token_data.first == Token::lbracket);
-      pair_token_data = return_pop_back(input);
+      pair_token_data = return_pop_back(&input);
 
+      print::prn("pair_token_data", pair_token_data.first,
+                 pair_token_data.second);
       assert(pair_token_data.first == Token::function);
       tree.token = pair_token_data.first;
       tree.data = pair_token_data.second;
@@ -255,7 +270,7 @@ auto add(SyntaxTree tree) -> SyntaxTree {
   return arity_dispatch(tree, add_unary, add_binary);
 }
 
-auto minus_unary(SyntaxTree tree) -> SyntaxTree{
+auto minus_unary(SyntaxTree tree) -> SyntaxTree {
   if (tree.children.size() == 0) {
     return {Token::error, "ERROR: Unary minus needs one child!", {}};
   } else {
@@ -479,10 +494,10 @@ auto string_to_tree(std::string input) -> SyntaxTree {
   std::reverse(lex_input.begin(), lex_input.end());
   print::prn(lex_input);
 
-  auto tree_size_pair = parse(lex_input);
-  print_tree(tree_size_pair.first);
-  assert(tree_size_pair.second == 0); // must consume the entire token vector
-  return tree_size_pair.first;
+  auto pair_tree_size = parse(lex_input);
+  print_tree(pair_tree_size.first);
+  assert(pair_tree_size.second == 0);  // must consume the entire token vector
+  return pair_tree_size.first;
 }
 
 auto read() -> SyntaxTree {
@@ -531,7 +546,9 @@ auto tree_to_string(SyntaxTree tree) -> std::string {
   return output;
 }
 
-auto _print(SyntaxTree tree) -> void { std::cout << tree_to_string(tree) << std::endl; }
+auto _print(SyntaxTree tree) -> void {
+  std::cout << tree_to_string(tree) << std::endl;
+}
 
 auto print_tree(SyntaxTree tree) -> void {
   // TODO(yrom1) remove where-ever this is called with just print
