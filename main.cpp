@@ -152,22 +152,14 @@ std::pair<SyntaxTree, std::size_t> make_tree(
   print::prn("entering make_tree: ", input.size());
   SyntaxTree tree;
   while (input.size() != 0) {
-    // the input, and the returned std::size_t, should be empty when the
-    // function returns (in the final return, not the recusive return)
-    // or an error has occured
-    // because it means the entire lexed vector has not been consumed
-    // print::prn("--- pre pop 0");
-    print::prn("input.size", input.size(), input.back().second);
     auto pair_token_data = input.back();
     input.pop_back();
-    // print::prn("--- post pop 0");
 
     // --- START TERMINALS ---
 
     // 1 -> 1, t -> t
     if (pair_token_data.first == Token::terminal ||
         pair_token_data.first == Token::t) {
-      print::prn("terminal or t: ", pair_token_data.second);
       tree.token = pair_token_data.first;
       tree.data = pair_token_data.second;
       break;
@@ -175,19 +167,14 @@ std::pair<SyntaxTree, std::size_t> make_tree(
 
     // An S-expr MUST start with a lbracket!
     if (pair_token_data.first != Token::lbracket) {
-      // print::prn("ERROR: Unbalanced lbracket!", "next: ", input.back().first,
-      //            input.back().second, "size: ", input.size());
       throw std::logic_error("ERROR: Unbalanced lbracket!");
     }
 
-    // print::prn("--- pre pop 1");
     // We're in an S-expr, can be either F, rbracket
-    print::prn("input.size", input.size());
     auto sexpr_pair_token_data = input.back();
     assert(sexpr_pair_token_data.first == Token::function ||
            sexpr_pair_token_data.first == Token::rbracket);
     input.pop_back();
-    // print::prn("--- post pop 1");
 
     // Empty () pair -> NIL
     if (sexpr_pair_token_data.first == Token::rbracket) {
@@ -506,29 +493,29 @@ SyntaxTree cond(SyntaxTree tree) {
   assert(tree.token == Token::function);
   assert(tree.data == "cond");
   print::prn("calling cond");
-  if (tree.children.size() == 0) {
-    return {Token::nil, "()", {}};
-  } else {
-    for (auto child : tree.children) {
-      assert(child.children[0].token == Token::function ||
-             child.children[0].token == Token::nil ||
-             child.children[0].token == Token::t);
-      if (child.children[0].token == Token::t) {
-        return child.children.back();
-      } else if (child.children[0].token == Token::nil) {
-        continue;
-      } else {
-        assert(child.children[0].token == Token::function);
-        SyntaxTree sublist = {child.children[0].token,
-                              child.children[0].data,
-                              {std::vector(child.children.begin() + 1,
-                                           child.children.end() - 1)}};
-        if (_not(null(eval(sublist))).token == Token::t) {
-          return child.children.back();
-        }
-      }
-    }
-  }
+  // if (tree.children.size() == 0) {
+  //   return {Token::nil, "()", {}};
+  // } else {
+  //   for (auto child : tree.children) {
+  //     assert(child.children[0].token == Token::function ||
+  //            child.children[0].token == Token::nil ||
+  //            child.children[0].token == Token::t);
+  //     if (child.children[0].token == Token::t) {
+  //       return child.children.back();
+  //     } else if (child.children[0].token == Token::nil) {
+  //       continue;
+  //     } else {
+  //       assert(child.children[0].token == Token::function);
+  //       SyntaxTree sublist = {child.children[0].token,
+  //                             child.children[0].data,
+  //                             {std::vector(child.children.begin() + 1,
+  //                                          child.children.end() - 1)}};
+  //       if (_not(null(eval(sublist))).token == Token::t) {
+  //         return child.children.back();
+  //       }
+  //     }
+  //   }
+  // }
   return {Token::nil, "()", {}};
 }
 
@@ -674,7 +661,7 @@ void run_tests() {
          "()");
 
   // (cond (t)) -> (cond (list (list t)))
-  assert(eval_string_to_string("(cond)") == "()");
+  // assert(eval_string_to_string("(cond)") == "()");
   // (cond (list)) is not allowed
   // assert(eval_string_to_string("(cond (list (list))") ==
   //  "()");  // no implicit list sugar, always pass (list (list... even when
@@ -692,7 +679,8 @@ void run_tests() {
   // assert(eval_string_to_string("(cond (() 1))") == "()");
   // assert(eval_string_to_string("(cond (() 1) (() 2))") == "()");
   // assert(eval_string_to_string("(cond ((eq 1 2) 3) (t 4))") == "4");
-  // assert(eval_string_to_string("(cond ((eq 1 2) 3) (() 4) (t 5))") == "5");
+  // assert(eval_string_to_string("(cond ((eq 1 2) 3) (() 4) (t 5))") ==
+  // "5");
 
   assert(eval_string_to_string("(null 1)") == "()");
   assert(eval_string_to_string("(null ())") == "t");
@@ -717,8 +705,9 @@ void run_tests() {
 
   assert(eval_string_to_string("(+ 9999999 1)") == "10000000");
   // assert(eval_string_to_string("(+ 99999999999999999999 1)") ==
-  // "100000000000000000000"); // dumps on stoi assert(eval_string_to_string("(+
-  // 1 ())") == "???"); // this core dumps, pass error?
+  // "100000000000000000000"); // dumps on stoi
+  // assert(eval_string_to_string("(+ 1 ())") == "???"); // this core
+  // dumps, pass error?
 }
 
 void repl() {
