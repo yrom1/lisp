@@ -417,29 +417,33 @@ auto _not(SyntaxTree tree) -> SyntaxTree {
   return null(tree);
 }
 
-auto notnull(SyntaxTree tree) {
+auto truep(SyntaxTree tree) {
   SyntaxTree nulltree = null({Token::function, "null", {eval(tree)}});
   SyntaxTree notnulltree = _not({Token::function, "not", {nulltree}});
   return notnulltree;
 }
 
-auto eval_cond_list(SyntaxTree tree) -> SyntaxTree {
+auto eval_cond_list(SyntaxTree tree) -> std::pair<SyntaxTree, bool> {
   if (tree.children.size() == 0) {
-    return {Token::nil, "()", {}};
+    print::prn("---1");
+    return {{Token::nil, "()", {}}, false};
   }
   if (tree.children[0].token == Token::t) {
-    return tree.children[tree.children.size() - 1];
+    print::prn("---2", tree.children[tree.children.size() - 1].data);
+    return {tree.children[tree.children.size() - 1], true};
   }
   if (tree.children.size() > 1) {
+    print::prn("---3");
     SyntaxTree sublist = {
         tree.children[0].token,
         tree.children[0].data,
         {std::vector(tree.children.begin(), tree.children.end() - 1)}};
-    if (notnull(sublist).token == Token::t) {
-      return tree.children.back();
+    if (truep(sublist).token == Token::t) {
+      return {tree.children.back(), true};
     }
   }
-  return {Token::nil, "()", {}};
+  print::prn("---4");
+  return {{Token::nil, "()", {}}, false};
 }
 
 auto cond(SyntaxTree tree) -> SyntaxTree {
@@ -469,13 +473,18 @@ auto cond(SyntaxTree tree) -> SyntaxTree {
   assert(tree.data == "cond");
   print::prn("calling cond");
   if (tree.children.size() == 0) {
+    print::prn("3---");
     return {Token::nil, "()", {}};
   } else {
     assert(tree.children[0].data == "list");
     for (auto list : tree.children[0].children) {
-      return eval_cond_list(list);
+      if (eval_cond_list(list).second == true) {
+        print::prn("0---");
+        return eval_cond_list(list).first;
+      }
     }
   }
+  print::prn("1---");
   return {Token::nil, "()", {}};
 }
 
@@ -625,7 +634,7 @@ auto run_tests() -> void {
   // sbcl (cond (t)) -> (cond (list (list t)))
   assert(eval_string_to_string("(cond)") == "()");
   // (cond (list)) is not allowed
-  assert(eval_string_to_string("(cond (list (list)))") == "()");
+  // assert(eval_string_to_string("(cond (list (list)))") == "()");
   // assert(eval_string_to_string("(cond (list (list t)))") == "t");
   // assert(eval_string_to_string("(cond (list (list 1)))") == "1");
   // assert(eval_string_to_string("(cond (list (list ())))") == "()");
@@ -633,8 +642,9 @@ auto run_tests() -> void {
   assert(eval_string_to_string("(cond (list (list t 2)))") == "2");
   assert(eval_string_to_string("(cond (list (list t 1 2 3 42)))") == "42");
   assert(eval_string_to_string("(cond (list (list 1 1)))") == "1");
-  // assert(eval_string_to_string("(cond (list (list () 42) (list t 1)))") ==
-  // "1"); assert(eval_string_to_string("(cond (list (list t 1) (list () 42)))")
+  assert(eval_string_to_string("(cond (list (list 1 1) (list 2 2)))") == "1");
+  assert(eval_string_to_string("(cond (list (list () 42) (list t 1)))") == "1");
+  // assert(eval_string_to_string("(cond (list (list t 1) (list () 42)))")
   // == "1"); assert(eval_string_to_string("(cond (list (list () 1)))") ==
   // "()"); assert(eval_string_to_string("(cond (list (list () 1) (list ()
   // 2)))") == "()");
