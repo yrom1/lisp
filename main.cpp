@@ -354,9 +354,12 @@ auto cdr(SyntaxTree tree) -> SyntaxTree {
 auto eq(SyntaxTree tree) -> SyntaxTree {
   assert(tree.token == Token::function);
   assert(tree.data == "eq");
+  print::prn(tree_to_string(tree));
   assert(tree.children.size() == 2);
   // FIXME(yrom1): need to recheck after symbols are added
   //               is (eq 3 3) -> t?
+  print::prn("child0", tree_to_string(tree.children[0]), "child1",
+             tree_to_string(tree.children[1]));
   if (&tree.children[0] == &tree.children[1] ||
       tree_to_string(tree.children[0]) == tree_to_string(tree.children[1])) {
     tree.token = Token::t;
@@ -366,6 +369,7 @@ auto eq(SyntaxTree tree) -> SyntaxTree {
     tree.data = "()";
   }
   tree.children.clear();
+  print::prn("eq result: ", tree.data);
   return tree;
 }
 
@@ -424,6 +428,7 @@ auto truep(SyntaxTree tree) {
 }
 
 auto eval_cond_list(SyntaxTree tree) -> std::pair<SyntaxTree, bool> {
+  assert(tree.data == "list");
   if (tree.children.size() == 0) {
     print::prn("---1");
     return {{Token::nil, "()", {}}, false};
@@ -434,15 +439,18 @@ auto eval_cond_list(SyntaxTree tree) -> std::pair<SyntaxTree, bool> {
   }
   if (tree.children.size() > 1) {
     print::prn("---3");
-    SyntaxTree sublist = {
-        tree.children[0].token,
-        tree.children[0].data,
-        {std::vector(tree.children.begin(), tree.children.end() - 1)}};
-    if (truep(sublist).token == Token::t) {
+    // SyntaxTree sublist = {
+    //     tree.children[0].token,
+    //     tree.children[0].data,
+    //     {std::vector(tree.children.begin(), tree.children.end())}};
+    print::prn("---4");  // tree_to_string(sublist), truep(sublist).token);
+    if (truep(tree.children[0]).token == Token::t) {
+      print::prn("return tree.children.back() which is ",
+                 tree.children.back().data);
       return {tree.children.back(), true};
     }
   }
-  print::prn("---4");
+  print::prn("---5");
   return {{Token::nil, "()", {}}, false};
 }
 
@@ -574,6 +582,7 @@ auto print_tree(SyntaxTree tree) -> void {
   // TODO(yrom1) remove where-ever this is called with just print
   _print(tree);
 }
+
 auto eval_string_to_string(std::string input) -> std::string {
   print::prn("es2s INPUT ", input);
   print::prn("es2s OUTPUT ", tree_to_string(eval(string_to_tree(input))));
@@ -644,10 +653,11 @@ auto run_tests() -> void {
   assert(eval_string_to_string("(cond (list (list 1 1)))") == "1");
   assert(eval_string_to_string("(cond (list (list 1 1) (list 2 2)))") == "1");
   assert(eval_string_to_string("(cond (list (list () 42) (list t 1)))") == "1");
-  // assert(eval_string_to_string("(cond (list (list t 1) (list () 42)))")
-  // == "1"); assert(eval_string_to_string("(cond (list (list () 1)))") ==
-  // "()"); assert(eval_string_to_string("(cond (list (list () 1) (list ()
-  // 2)))") == "()");
+  assert(eval_string_to_string("(cond (list (list t 1) (list () 42)))") == "1");
+  assert(eval_string_to_string("(cond (list (list () 1)))") == "()");
+  assert(eval_string_to_string("(cond (list (list () 1) (list () 2)))") ==
+         "()");
+  assert(eval_string_to_string("(cond (list (list (eq 1 1) 2)))") == "2");
   // assert(eval_string_to_string("(cond (list (list eq 1 2 3) (list t 4)))") ==
   //  "4");
   // assert(eval_string_to_string(
