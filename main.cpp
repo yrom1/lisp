@@ -438,7 +438,7 @@ auto eval_cond_list(SyntaxTree tree) -> std::pair<SyntaxTree, bool> {
     print::prn("---2", tree.children[tree.children.size() - 1].data);
     return {tree.children[tree.children.size() - 1], true};
   }
-  if (tree.children.size() > 1) {
+  if (tree.children.size() >= 1) {
     print::prn("---3");
     // SyntaxTree sublist = {
     //     tree.children[0].token,
@@ -644,10 +644,10 @@ auto run_tests() -> void {
   // sbcl (cond (t)) -> (cond (list (list t)))
   assert(eval_string_to_string("(cond)") == "()");
   // (cond (list)) is not allowed
-  // assert(eval_string_to_string("(cond (list (list)))") == "()");
-  // assert(eval_string_to_string("(cond (list (list t)))") == "t");
-  // assert(eval_string_to_string("(cond (list (list 1)))") == "1");
-  // assert(eval_string_to_string("(cond (list (list ())))") == "()");
+  assert(eval_string_to_string("(cond (list (list)))") == "()");
+  assert(eval_string_to_string("(cond (list (list t)))") == "t");
+  assert(eval_string_to_string("(cond (list (list 1)))") == "1");
+  assert(eval_string_to_string("(cond (list (list ())))") == "()");
   assert(eval_string_to_string("(cond (list (list t 1)))") == "1");
   assert(eval_string_to_string("(cond (list (list t 2)))") == "2");
   assert(eval_string_to_string("(cond (list (list t 1 2 3 42)))") == "42");
