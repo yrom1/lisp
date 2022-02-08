@@ -361,7 +361,8 @@ auto eq(SyntaxTree tree) -> SyntaxTree {
   print::prn("child0", tree_to_string(tree.children[0]), "child1",
              tree_to_string(tree.children[1]));
   if (&tree.children[0] == &tree.children[1] ||
-      tree_to_string(tree.children[0]) == tree_to_string(tree.children[1])) {
+      tree_to_string(eval(tree.children[0])) ==
+          tree_to_string(eval(tree.children[1]))) {
     tree.token = Token::t;
     tree.data = "t";
   } else {
@@ -658,10 +659,10 @@ auto run_tests() -> void {
   assert(eval_string_to_string("(cond (list (list () 1) (list () 2)))") ==
          "()");
   assert(eval_string_to_string("(cond (list (list (eq 1 1) 2)))") == "2");
-  // assert(eval_string_to_string("(cond (list (list eq 1 2 3) (list t 4)))") ==
-  //  "4");
-  // assert(eval_string_to_string(
-  //  "(cond (list (list eq 2 (+ 1 1) 3) (list t 4)))") == "3");
+  assert(eval_string_to_string("(cond (list (list (eq 1 2) 3) (list t 4)))") ==
+         "4");
+  assert(eval_string_to_string(
+             "(cond (list (list (eq 2 (+ 1 1)) 3) (list t 4)))") == "3");
 
   assert(eval_string_to_string("(null 1)") == "()");
   assert(eval_string_to_string("(null ())") == "t");
