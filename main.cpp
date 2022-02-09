@@ -593,102 +593,97 @@ auto eval_string_to_string(std::string input) -> std::string {
 // TODO(yrom1): list, quote, atom, eq, car, cdr, cons, cond
 // see https://jtra.cz/stuff/lisp/sclr/index.html
 
+auto test_eval(std::string input, std::string output) -> void {
+  assert(eval_string_to_string(input) == output);
+}
+
 auto run_tests() -> void {
-  // assert(eval_string_to_string("") == "");
-  assert(eval_string_to_string("1") == "1");
-  assert(eval_string_to_string("42") == "42");
+  // test_eval("", "");
+  test_eval("1", "1");
+  test_eval("42", "42");
 
-  assert(eval_string_to_string("()") == "()");  // no NIL sugar
+  test_eval("()", "()");  // no NIL sugar
 
-  assert(eval_string_to_string("(list)") == "()");
-  assert(eval_string_to_string("(list 1)") == "(list 1 ())");  // no (1) sugar
-  assert(eval_string_to_string("(LIST 1)") ==
-         "(list 1 ())");  // everything lowercase
-  assert(eval_string_to_string("(list 1 2)") == "(list 1 2 ())");
-  assert(eval_string_to_string("(list (list 1 2))") ==
-         "(list (list 1 2 ()) ())");
-  assert(eval_string_to_string("(list 1 (+ 2 3))") == "(list 1 5 ())");
+  test_eval("(list)", "()");
+  test_eval("(list 1)", "(list 1 ())");  // no (1) sugar
+  test_eval("(LIST 1)", "(list 1 ())");  // everything lowercase
+  test_eval("(list 1 2)", "(list 1 2 ())");
+  test_eval("(list (list 1 2))", "(list (list 1 2 ()) ())");
+  test_eval("(list 1 (+ 2 3))", "(list 1 5 ())");
 
-  assert(eval_string_to_string("(cons 1 ())") == "(cons 1 ())");
-  assert(eval_string_to_string("(cons 1 2)") == "(cons 1 2)");
-  assert(eval_string_to_string("(cons () ())") == "(cons () ())");
+  test_eval("(cons 1 ())", "(cons 1 ())");
+  test_eval("(cons 1 2)", "(cons 1 2)");
+  test_eval("(cons () ())", "(cons () ())");
 
-  assert(eval_string_to_string("(atom ())") == "t");
-  assert(eval_string_to_string("(atom (list 1))") == "()");
-  assert(eval_string_to_string("(atom (cons 1 2))") == "()");
+  test_eval("(atom ())", "t");
+  test_eval("(atom (list 1))", "()");
+  test_eval("(atom (cons 1 2))", "()");
 
   // "(listp ())" == "t"
 
-  assert(eval_string_to_string("(quote 1)") == "1");
-  assert(eval_string_to_string("(quote (list 1 2))") == "(list 1 2)");
-  assert(eval_string_to_string("(quote (+ 1 2))") == "(+ 1 2)");
+  test_eval("(quote 1)", "1");
+  test_eval("(quote (list 1 2))", "(list 1 2)");
+  test_eval("(quote (+ 1 2))", "(+ 1 2)");
 
-  assert(eval_string_to_string("(car (list 1 2))") == "1");
-  assert(eval_string_to_string("(car (list (list 1 2) 3 4))") ==
-         "(list 1 2 ())");
+  test_eval("(car (list 1 2))", "1");
+  test_eval("(car (list (list 1 2) 3 4))", "(list 1 2 ())");
 
-  assert(eval_string_to_string("(cdr ())") == "()");
-  assert(eval_string_to_string("(cdr (list 1))") == "()");
-  assert(eval_string_to_string("(cdr (list 1 2))") == "(list 2 ())");
-  assert(eval_string_to_string("(cdr (list (list 1 2) 3 4))") ==
-         "(list 3 4 ())");
+  test_eval("(cdr ())", "()");
+  test_eval("(cdr (list 1))", "()");
+  test_eval("(cdr (list 1 2))", "(list 2 ())");
+  test_eval("(cdr (list (list 1 2) 3 4))", "(list 3 4 ())");
 
-  assert(eval_string_to_string("(eq 1 1)") == "t");
-  assert(eval_string_to_string("(eq 1 2)") == "()");
-  assert(eval_string_to_string("(eq (list 1 2) (list 1 2))") == "t");
-  assert(eval_string_to_string("(eq (list 1 (+ 2 3)) (list 1 (+ 2 3)))") ==
-         "t");
-  assert(eval_string_to_string("(eq (list 1 (+ 2 3)) (list 1 (+ 2 4)))") ==
-         "()");
+  test_eval("(eq 1 1)", "t");
+  test_eval("(eq 1 2)", "()");
+  test_eval("(eq (list 1 2) (list 1 2))", "t");
+  test_eval("(eq (list 1 (+ 2 3)) (list 1 (+ 2 3)))", "t");
+  test_eval("(eq (list 1 (+ 2 3)) (list 1 (+ 2 4)))", "()");
 
   // sbcl (cond (t)) -> (cond (list (list t)))
-  assert(eval_string_to_string("(cond)") == "()");
+  test_eval("(cond)", "()");
   // (cond (list)) is not allowed
-  assert(eval_string_to_string("(cond (list (list)))") == "()");
-  assert(eval_string_to_string("(cond (list (list t)))") == "t");
-  assert(eval_string_to_string("(cond (list (list 1)))") == "1");
-  assert(eval_string_to_string("(cond (list (list ())))") == "()");
-  assert(eval_string_to_string("(cond (list (list t 1)))") == "1");
-  assert(eval_string_to_string("(cond (list (list t 2)))") == "2");
-  assert(eval_string_to_string("(cond (list (list t 1 2 3 42)))") == "42");
-  assert(eval_string_to_string("(cond (list (list 1 1)))") == "1");
-  assert(eval_string_to_string("(cond (list (list 1 1) (list 2 2)))") == "1");
-  assert(eval_string_to_string("(cond (list (list () 42) (list t 1)))") == "1");
-  assert(eval_string_to_string("(cond (list (list t 1) (list () 42)))") == "1");
-  assert(eval_string_to_string("(cond (list (list () 1)))") == "()");
-  assert(eval_string_to_string("(cond (list (list () 1) (list () 2)))") ==
-         "()");
-  assert(eval_string_to_string("(cond (list (list (eq 1 1) 2)))") == "2");
-  assert(eval_string_to_string("(cond (list (list (eq 1 2) 3) (list t 4)))") ==
-         "4");
-  assert(eval_string_to_string(
-             "(cond (list (list (eq 2 (+ 1 1)) 3) (list t 4)))") == "3");
+  test_eval("(cond (list (list)))", "()");
+  test_eval("(cond (list (list t)))", "t");
+  test_eval("(cond (list (list 1)))", "1");
+  test_eval("(cond (list (list ())))", "()");
+  test_eval("(cond (list (list t 1)))", "1");
+  test_eval("(cond (list (list t 2)))", "2");
+  test_eval("(cond (list (list t 1 2 3 42)))", "42");
+  test_eval("(cond (list (list 1 1)))", "1");
+  test_eval("(cond (list (list 1 1) (list 2 2)))", "1");
+  test_eval("(cond (list (list () 42) (list t 1)))", "1");
+  test_eval("(cond (list (list t 1) (list () 42)))", "1");
+  test_eval("(cond (list (list () 1)))", "()");
+  test_eval("(cond (list (list () 1) (list () 2)))", "()");
+  test_eval("(cond (list (list (eq 1 1) 2)))", "2");
+  test_eval("(cond (list (list (eq 1 2) 3) (list t 4)))", "4");
+  test_eval("(cond (list (list (eq 2 (+ 1 1)) 3) (list t 4)))", "3");
 
-  assert(eval_string_to_string("(null 1)") == "()");
-  assert(eval_string_to_string("(null ())") == "t");
-  assert(eval_string_to_string("(null (cond))") == "t");
+  test_eval("(null 1)", "()");
+  test_eval("(null ())", "t");
+  test_eval("(null (cond))", "t");
 
   // TODO(yrom1): code repetition with null and not tests
-  assert(eval_string_to_string("(not 1)") == "()");
-  assert(eval_string_to_string("(not ())") == "t");
-  assert(eval_string_to_string("(not (cond))") == "t");
+  test_eval("(not 1)", "()");
+  test_eval("(not ())", "t");
+  test_eval("(not (cond))", "t");
 
-  assert(eval_string_to_string("(+)") == "0");
-  assert(eval_string_to_string("(+ 1 2 3 4)") == "10");
-  assert(eval_string_to_string("(+ 1 (+ 2))") == "3");
-  assert(eval_string_to_string("(+ (+ 1 2) (+ 3 4))") == "10");
-  assert(eval_string_to_string("(+ (+ (+ (+ 2))))") == "2");
+  test_eval("(+)", "0");
+  test_eval("(+ 1 2 3 4)", "10");
+  test_eval("(+ 1 (+ 2))", "3");
+  test_eval("(+ (+ 1 2) (+ 3 4))", "10");
+  test_eval("(+ (+ (+ (+ 2))))", "2");
 
-  assert(eval_string_to_string("(- 1)") == "-1");
-  assert(eval_string_to_string("(- 4 2)") == "2");
-  assert(eval_string_to_string("(- (- 1))") == "1");
+  test_eval("(- 1)", "-1");
+  test_eval("(- 4 2)", "2");
+  test_eval("(- (- 1))", "1");
 
-  assert(eval_string_to_string("(+ 1 (- 4 2))") == "3");
+  test_eval("(+ 1 (- 4 2))", "3");
 
-  assert(eval_string_to_string("(+ 9999999 1)") == "10000000");
-  // assert(eval_string_to_string("(+ 99999999999999999999 1)") ==
+  test_eval("(+ 9999999 1)", "10000000");
+  // test_eval("(+ 99999999999999999999 1)") ==
   // "100000000000000000000"); // dumps on stoi
-  // assert(eval_string_to_string("(+ 1 ())") == "???"); // this core
+  // test_eval("(+ 1 ())", "???"); // this core
   // dumps, pass error?
 }
 
